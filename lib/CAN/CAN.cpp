@@ -61,6 +61,7 @@ char receiveCANMessage(int *id, char *adresse_tableau_data){
 
 // filtre le message, retourne 1 si msg pour nous
 bool msg_for_me(int id_msg_rx){
+    Serial.println(id_msg_rx,HEX);
     // msg pour nous, ceux de la carte avant si configuré en carte avant, carte arriere sinon
     if(id_msg_rx == USED_CAN_ID.HERKULEX_AIMANT_CENTRE){
         return 1;
@@ -87,6 +88,9 @@ bool msg_for_me(int id_msg_rx){
         return 1;
     }
     if(id_msg_rx == USED_CAN_ID.CONSTRUIRE_TERMINEE){
+        return 1;
+    }
+    if(id_msg_rx == USED_CAN_ID.RESTART_STM){
         return 1;
     }
 

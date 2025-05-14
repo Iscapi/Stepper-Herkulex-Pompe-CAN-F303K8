@@ -33,20 +33,25 @@ void setup()
 {
     Serial.begin(115200);
     Serial.println("Serial.begin");
-    delay(100);
+    delay(1000);
     initStepper();
     Serial.println("initStepper()");
 
     init_serial_1_for_herkulex();
-    delay(100);
+    delay(1000);
     Serial.println("init_serial_1_for_herkulex");
 
     setup_can();
-    delay(100);
+    delay(1000);
     Serial.println("setup_can");
-    delay(100);
+    delay(1000);
 
     pinMode(PIN_POMPE, OUTPUT);
+
+    Serial.println(USED_CAN_ID.BOOT_CARTE_MPP, HEX);
+    delay(2000);
+
+    // restart_all_servo();
 
     mutex = xSemaphoreCreateMutex(); // cree le mutex
     xTaskCreate(Gestion_STEPPER, "Gestion_STEPPER", configMINIMAL_STACK_SIZE, NULL, 2, &stepper_handle);
@@ -61,13 +66,15 @@ void setup()
 
     // Affiche si y'a un problème de mémoire
 
-    Serial.println("Insufficient RAM");
+    // Serial.println("Insufficient RAM");
     while (1)
         ;
 }
 
 void loop()
 {
+
+    
     // loop vide
     // static bool aspire = false;
 
@@ -149,7 +156,7 @@ void Gestion_CAN(void *parametres)
                     // nbre de pas codé sur les 4 premiers octet de la trame
                     nb_step = *((int *)&data_msg_can_rx);
                     // mode de fdc sur l'octet de 4
-                    mode_fdc = data_msg_can_rx[4];
+                    mode_fdc = 1;
                     xTaskNotifyGive(stepper_handle); // on lance la tâche
                     Serial.println(nb_step);
                 }
@@ -179,6 +186,9 @@ void Gestion_CAN(void *parametres)
                         On fait en quelque sorte une interruption tâche
                     */
                     xTaskNotifyGive(build_handle); // on lance la tâche
+                }
+                if(id_msg_can_rx == USED_CAN_ID.RESTART_STM){
+                    NVIC_SystemReset();
                 }
             }
 
@@ -277,6 +287,7 @@ void build_floor2(void *)
 
             case 0: // pas besoin de default comme on commence qu'une fois réveillé
                 // attrape la planche et ecarte les aimants pour monter plus tard
+                restart_all_servo();
                 cmd_pivot_pompe(DEPLOYER);
                 cmd_pompe(ATTRAPER);
                 aimant_cote_ecarter();
@@ -314,6 +325,7 @@ void build_floor2(void *)
 
                 if (now - last_update > 1200)
                 {
+                    restart_all_servo();
                     last_update = now;
                     nb_step = -350, mode_fdc = 0, flag_stepper = 1;
                     xTaskNotifyGive(stepper_handle);

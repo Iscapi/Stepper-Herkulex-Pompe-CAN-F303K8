@@ -18,4 +18,5 @@ USED_ID USED_CAN_ID = {
     .CONSTRUIRE_2ETAGE = (uint16_t)(CONSTRUIRE_AVANT_2ETAGE + offset_can_id),
     .CONSTRUIRE_PREPARER = (uint16_t)(CONSTRUIRE_AVANT_PREPARER + offset_can_id),
     .CONSTRUIRE_TERMINEE = (uint16_t)(CONSTRUIRE_AVANT_TERMINEE + offset_can_id),
+    .RESTART_STM = (uint16_t)(RESTART_AVANT + offset_can_id),
 };

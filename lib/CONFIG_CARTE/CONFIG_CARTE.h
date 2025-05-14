@@ -19,7 +19,8 @@ struct USED_ID {
     uint16_t LACHER;
     uint16_t CONSTRUIRE_2ETAGE;
     uint16_t CONSTRUIRE_PREPARER; 
-    uint16_t CONSTRUIRE_TERMINEE; 
+    uint16_t CONSTRUIRE_TERMINEE;
+    uint16_t RESTART_STM; 
 };
 
 extern USED_ID USED_CAN_ID; // déclaration externe
