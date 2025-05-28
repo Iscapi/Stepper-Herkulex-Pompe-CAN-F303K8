@@ -6,6 +6,7 @@
 // offset pour différencier les deux cartes MPP, avant, ou arrière
 
 #define PIN_POMPE PF0 // Pin pour la pompe
+#define PIN_JACK PF1 // pour pour l'arrêt d'urgence
 
 SemaphoreHandle_t mutex = NULL;        // handle du mutex
 TaskHandle_t build_handle = nullptr;   // handle de la contruction
@@ -47,6 +48,7 @@ void setup()
     delay(1000);
 
     pinMode(PIN_POMPE, OUTPUT);
+    pinMode(PIN_JACK,INPUT_PULLUP);
 
     Serial.println(USED_CAN_ID.BOOT_CARTE_MPP, HEX);
     delay(2000);
@@ -114,10 +116,11 @@ void cmd_pompe(bool mouvement)
 // Reçoit les trames CAN et prend ceux qui concernent la carte et les traite
 void Gestion_CAN(void *parametres)
 {
+    bool flag_debut = false;
 
     while (1)
     {
-
+        if(!digitalRead(PIN_JACK) && !flag_debut && CARD_ROLE) sendCANMessage(START_ROBOT_MATCH,0,0,0,0,0,0,0,0), flag_debut = true, Serial.println("ON DEMARRE");
         // prend le mutex avant d'utiliser les periphériques séries
         if (xSemaphoreTake(mutex, (TickType_t)5) == pdTRUE)
         {
