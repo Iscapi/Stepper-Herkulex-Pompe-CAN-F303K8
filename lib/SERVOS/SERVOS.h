@@ -3,29 +3,15 @@
 #include <HardwareSerial.h>
 #include <HerkulexServo.h>
 
-#define SERVO_AIMANT_CENTRE  0x04
-#define SERVO_AIMANT_GAUCHE  0x02 
-#define SERVO_AIMANT_DROIT  0x03
-#define SERVO_PIVOT_GAUCHE 0x01
-#define SERVO_PIVOT_DROIT 0x05
+// Définition des identifiants des servos Herkulex utilisés dans le projet
+#define HERKULEX_BROADCAST_ID 0xFE // ID de diffusion pour tous les servos
+#define SERVO_SERRAGE 0x04 
 #define SERVO_ROTATION 0x06
-#define SERVO_PIVOT_PINCE 0x07
 
-#define RETIRER 0
-#define ATTRAPER 1
-#define CENTRE 0 // canette cote ramené au centre
-#define COTE 1 // canette cote ramené au coté
-#define ECARTER 2 // cannette cote écarté pour monter la planche 
-#define RETRACTER 0
-#define DEPLOYER 1
-#define AVANT_CONSTRUCTION 2
+// Définition des positions et angles pour les mouvements des servos
+#define ATTRAPE 200 
+#define RELACHE 800 // à vérifier
 
-#define ANGLE_PINCE_ATTRAPER 130 
-#define ANGLE_PINCE_LACHER 0
-#define ANGLE_PIVOT_PINCE_AVANT_CONSTRUCTION 80
-#define ANGLE_PIVOT_COTE_ECARTER 25 // + pour le droit, - gauche
-#define ANGLE_PIVOT_COTE_ATTRAPER -50
-#define ANGLE_PIVOT_COTE_CENTRE -113
 
 
 
@@ -36,12 +22,6 @@ void test_herkulex();
 void test_connexion();
 int detect_id(bool activate);
 void rotation_moteur(void);
-void aimant_cote_ecarter(void);
-void aimant_cote_attraper(void);
-void cmd_aimant_centre(bool mouvement);
-void cmd_aimant_cote(char mouvement);
-void cmd_pivot_pompe(char mouvement);
-void cmd_pince(bool mouvement);
 void display_servo_position(void);
 int16_t get_servo_pos(HerkulexServo servo);
 void restart_all_servo(void);
@@ -53,8 +33,6 @@ void get_all_servo_pos(
     short *pos_servo_aimant_centre,
     short *pos_servo_pince,
     short *pos_servo_pivot_pince);
-
-
 
 #endif
 
