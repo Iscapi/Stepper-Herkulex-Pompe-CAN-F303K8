@@ -9,7 +9,7 @@
 #define SERVO_SERRAGE 0x04
 #define SERVO_ROTATION 0x06
 
-#define ATTRAPE 200
+#define ATTRAPE 340 //350
 #define RELACHE 800
 #define ANGLE0 276
 #define ANGLE90 552
@@ -28,7 +28,7 @@ extern HerkulexServo servo_serr;
 
 // Prototypes de fonctions
 void serrer(void);
-void desserer(void);
+void desserrer(void);
 void tourner(void);
 
 void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_);

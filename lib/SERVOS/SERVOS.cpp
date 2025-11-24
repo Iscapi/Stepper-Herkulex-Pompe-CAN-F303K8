@@ -35,7 +35,7 @@ void serrer(void)
   delay(200); // Attente de 225 ms
 }
 
-void desserer(void)
+void desserrer(void)
 {
   servo_serr.setPosition(RELACHE, 50, HerkulexLed::Blue); // Ouvre la pince
   herkulex_bus.executeMove();
@@ -51,17 +51,17 @@ void tourner(void)
       etat_rota = 1;
       break;
     case 1:
-      servo_rota.setPosition(ANGLE90, 50, HerkulexLed::Blue); // Position 90°
-      etat_rota = 2;
+      servo_rota.setPosition(ANGLE180, 50, HerkulexLed::Blue); // Position 90°
+      etat_rota = 0;
       break;
-    case 2:
+    /*case 2:
       servo_rota.setPosition(ANGLE180, 50, HerkulexLed::Red); // Position 180°
       etat_rota = 3;
       break;
     case 3:
       servo_rota.setPosition(ANGLE90, 50, HerkulexLed::Red); // Position 180°
       etat_rota = 0;
-      break;
+      break;*/
   }
 }
 
