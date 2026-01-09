@@ -9,11 +9,14 @@
 #define SERVO_SERRAGE 0x04
 #define SERVO_ROTATION 0x06
 
-#define ATTRAPE 340 //350
-#define RELACHE 800
+#define ATTRAPE 550 //350
+#define RELACHE 400
 #define ANGLE0 276
 #define ANGLE90 552
 #define ANGLE180 829
+#define HAUT 200
+#define BAS 950
+
 
 // Broches série
 #define PIN_SW_RX PB7
@@ -30,6 +33,8 @@ extern HerkulexServo servo_serr;
 void serrer(void);
 void desserrer(void);
 void tourner(void);
+void monter(void);
+void descendre(void);
 
 void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_);
 void init_serial_1_for_herkulex();

@@ -10,12 +10,10 @@ void setup() {
   //detect_id(true);
 }
 
-void loop() 
-{
-  serrer();
+void loop() // On test les fonctions une par une
+{           // La boucle simule un attrapage d'objet, un retournement et un relachement
+  descendre();
   delay(2000);
-  tourner();
-  delay(2000);
-  desserrer();
+  monter();
   delay(2000);
 }

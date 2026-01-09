@@ -28,6 +28,20 @@ void init_serial_1_for_herkulex()
   all_servo.setTorqueOn();   // Active le couple du servo (mise sous tension)
 }
 
+void monter(void)
+{
+  all_servo.setPosition(HAUT, 150, HerkulexLed::Green); // Lève la pince
+  herkulex_bus.executeMove();
+  delay(200); // Attente de 225 ms
+}
+
+void descendre(void)
+{
+  all_servo.setPosition(BAS, 150, HerkulexLed::Green); // descend la pince
+  herkulex_bus.executeMove();
+  delay(200); // Attente de 225 ms
+}
+
 void serrer(void)
 {
   servo_serr.setPosition(ATTRAPE, 50, HerkulexLed::Green); // Ouvre la pince
