@@ -6,16 +6,16 @@
 
 // Définitions d'ID et positions
 #define HERKULEX_BROADCAST_ID 0xFE
-#define SERVO_SERRAGE 0x04
-#define SERVO_ROTATION 0x06
+#define SERVO_SERRAGE 0x00
+#define SERVO_ROTATION 0x00
 
 #define ATTRAPE 550 //350
 #define RELACHE 400
 #define ANGLE0 276
 #define ANGLE90 552
 #define ANGLE180 829
-#define HAUT 200
-#define BAS 950
+#define HAUT 500
+#define BAS 300
 
 
 // Broches série
