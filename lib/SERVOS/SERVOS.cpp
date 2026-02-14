@@ -228,14 +228,14 @@ void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_)
   Serial.printf("%d", old_.readEep(HerkulexEepRegister::ID));
   Serial.print(1);
   old_.writeEep(HerkulexEepRegister::ID, id);
-  Serial.print(1);
+  //Serial.print(1);
   Serial.printf("%d", old_.readEep(HerkulexEepRegister::ID));
-  Serial.print(1);
+  //Serial.print(1);
   delay(300); // un peu plus long
-  Serial.print(1);
+  //Serial.print(1);
   new_.reboot();
   delay(300); // pour être certain
-  Serial.print(1);
+  //Serial.print(1);
   new_.setLedColor(HerkulexLed::White);
   while (1)
   {
