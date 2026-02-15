@@ -33,8 +33,8 @@ extern HerkulexServo servo_serr;
 void serrer(void);
 void desserrer(void);
 void tourner(void);
-void monter(void);
-void descendre(void);
+void rapprocher(void);
+void ecarter(void);
 
 void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_);
 void init_serial_1_for_herkulex();

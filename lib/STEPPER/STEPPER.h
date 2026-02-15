@@ -19,12 +19,7 @@
 
 //* Fonction pour initialiser le moteur pas-à-pas
 void initStepper();
-void blockStepper(void);
-void UnlockStepper(void);
-
-//* Fonction pour la mise en route du moteur pas-à-pas
-int stepper(int swpulse, int microstep, bool up );
-int convert_angle_to_pas(int angle_deg);
-void display_FDC(void);
+void haut (int pas);
+void bas (int pas);
 
 #endif
