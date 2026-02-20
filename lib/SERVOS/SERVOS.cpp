@@ -2,7 +2,6 @@
 #include "SERVOS.h"
 #include <STM32FreeRTOS.h>
 
-
 #define position_ecarter 300
 
 #define position_ecarter_pince 350
@@ -51,41 +50,72 @@ void init_serial_1_for_herkulex()
   all_servo.setTorqueOn();  // Active le couple du servo (mise sous tension)
 }
 
-void tourner(void)
+void tourner(int pince)
 {
-  int etat_rotae=0;
+  int etat_rotae = 0, position;
   switch (etat_rotae)
   {
   case 0:
-    //servo_retourner_interieur.setPosition(position_defaut, 150, HerkulexLed::Green); // Position 0°
-    servo_retourner_exterieur.setPosition(position_defaut, 150, HerkulexLed::Green); // Position 0°
+    position = position_defaut;
     etat_rotae = 1;
     break;
   case 1:
-    //servo_retourner_interieur.setPosition(position_retourner, 150, HerkulexLed::Blue); // Position 90°
-    servo_retourner_exterieur.setPosition(position_retourner, 150, HerkulexLed::Blue); // Position 90°
+    position = position_retourner;
     etat_rotae = 0;
     break;
-    /*case 2:
-      servo_rota.setPosition(ANGLE180, 50, HerkulexLed::Red); // Position 180°
-      etat_rota = 3;
-      break;
-    case 3:
-      servo_rota.setPosition(ANGLE90, 50, HerkulexLed::Red); // Position 180°
-      etat_rota = 0;
-      break;*/
+  }
+  switch (pince)
+  {
+  case 1:
+    servo_retourner_interieur.setPosition(position, 150, HerkulexLed::Blue); // Position 90°
+    break;
+  case 2:
+    servo_attraper_exterieur.setPosition(position, 150, HerkulexLed::Green); // Ouvre la pince
+    break;
+  case 12:
+    servo_retourner_interieur.setPosition(position, 150, HerkulexLed::Blue); // Position 90°
+    servo_retourner_exterieur.setPosition(position, 150, HerkulexLed::Blue); // Position 90°
+    break;
+  default:
+    break;
   }
 }
-void serrer(void)
+void serrer(int pince)
 {
-  servo_attraper_interieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
-  servo_attraper_exterieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+  switch (pince)
+  {
+  case 1:
+    servo_attraper_interieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+    break;
+  case 2:
+    servo_attraper_exterieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+    break;
+  case 12:
+    servo_attraper_interieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+    servo_attraper_exterieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+    break;
+  default:
+    break;
+  }
 }
 
-void desserrer(void)
+void desserrer(int pince)
 {
-  servo_attraper_interieur.setPosition(position_ecarter, 150, HerkulexLed::Blue); // Ouvre la pince
-  servo_attraper_exterieur.setPosition(position_ecarter, 150, HerkulexLed::Blue); // Ouvre la pince
+  switch (pince)
+  {
+  case 1:
+    servo_attraper_interieur.setPosition(position_ecarter, 150, HerkulexLed::Blue); // Ouvre la pince
+    break;
+  case 2:
+    servo_attraper_exterieur.setPosition(position_ecarter, 150, HerkulexLed::Green); // Ouvre la pince
+    break;
+  case 12:
+    servo_attraper_interieur.setPosition(position_ecarter, 150, HerkulexLed::Blue); // Ouvre la pince
+    servo_attraper_exterieur.setPosition(position_ecarter, 150, HerkulexLed::Blue); // Ouvre la pince
+    break;
+  default:
+    break;
+  }
 }
 void ecarter(void)
 {
@@ -250,14 +280,14 @@ void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_)
   Serial.printf("%d", old_.readEep(HerkulexEepRegister::ID));
   Serial.print(1);
   old_.writeEep(HerkulexEepRegister::ID, id);
-  //Serial.print(1);
+  // Serial.print(1);
   Serial.printf("%d", old_.readEep(HerkulexEepRegister::ID));
-  //Serial.print(1);
+  // Serial.print(1);
   delay(300); // un peu plus long
-  //Serial.print(1);
+  // Serial.print(1);
   new_.reboot();
   delay(300); // pour être certain
-  //Serial.print(1);
+  // Serial.print(1);
   new_.setLedColor(HerkulexLed::White);
   while (1)
   {

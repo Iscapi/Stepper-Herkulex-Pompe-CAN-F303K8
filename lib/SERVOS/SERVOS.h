@@ -30,9 +30,9 @@ extern HerkulexServo servo_rota;
 extern HerkulexServo servo_serr;
 
 // Prototypes de fonctions
-void serrer(void);
-void desserrer(void);
-void tourner(void);
+void serrer(int pince);
+void desserrer(int pince);
+void tourner(int pince);
 void rapprocher(void);
 void ecarter(void);
 

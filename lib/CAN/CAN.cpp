@@ -17,8 +17,8 @@ void setup_can(){
 
     Can.begin();
     //Can.setBaudRate(250000);  //250KBPS
-    // Can.setBaudRate(500000);  //500KBPS
-    Can.setBaudRate(1000000);  //1000KBPS
+    Can.setBaudRate(500000);  //500KBPS
+    //Can.setBaudRate(1000000);  //1000KBPS
   
 }
 
