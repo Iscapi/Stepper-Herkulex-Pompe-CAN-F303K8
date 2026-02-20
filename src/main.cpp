@@ -16,6 +16,7 @@ static CAN_message_t CAN_RX_msg;
 
 HerkulexServo servo_rotae(herkulex_bus, 0x06);
 HerkulexServo servo_serer(herkulex_bus, 0x08);
+TaskHandle_t _CAN_;
 
 int tab_CAN[8];
 int ID = 0;
@@ -23,10 +24,12 @@ int etat_rotae = 1;
 
 int num_carte = 0;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
-int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0;
+int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
 
 int en_cours = 0, pre_action = 0;
+static unsigned long lastSend = 0;
 void reception(char ch);
+void CAN_(void *);
 
 String serie;
 void setup()
@@ -36,14 +39,14 @@ void setup()
   Can.begin();
   // Can.setBaudRateValues(4, 11, 4, 1); // → 500 kbps avec APB1 à 32 MHz
   Can.setBaudRate(500000); // 500KBPS
-  // delay(10000);
-  // Serial.println("CAN init OK");
-  // Serial.print("APB1 clock: ");
-  // Serial.println(HAL_RCC_GetPCLK1Freq());
+                           // delay(10000);
+                           // Serial.println("CAN init OK");
+                           // Serial.print("APB1 clock: ");
+                           // Serial.println(HAL_RCC_GetPCLK1Freq());
 
   // initStepper();
   // init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
-  // delay(5000);
+  delay(5000);
 
   /*servo_serer.setLedColor(HerkulexLed::Green);
   servo_rotae.setLedColor(HerkulexLed::Blue);
@@ -54,11 +57,16 @@ void setup()
   delay (1000);
   servo_rotae.setPosition(900, 150, HerkulexLed::Green); // Ouvre la pince
   servo_serer.setPosition(900, 150, HerkulexLed::Blue); // Ouvre la pince
-  haut(50);
-  desserrer();
+  */
+  /*haut(50);
+  desserrer(12);
   delay(1000);
   rapprocher();*/
+  Serial.println("Test1");
+  // xTaskCreate(CAN_, "CAN", 16000, NULL, 13, &_CAN_);
+  Serial.println("Tes2");
   vTaskStartScheduler();
+  Serial.println("Insufficient RAM");
   while (1)
     ;
 }
@@ -68,39 +76,32 @@ void loop()
 {
   while (1)
   {
-    //  Serial.println("Test");
     if (Can.read(CAN_RX_msg))
     {
       Serial.printf("%d ", CAN_RX_msg.id);
 
-      if (CAN_RX_msg.id == 0x02)
+      if (CAN_RX_msg.id == 0x01)
       {
-        for (int i = 0; i < CAN_RX_msg.len; i++)
-        {
-          tab_CAN[i] = CAN_RX_msg.buf[i]; // met les datas dans le tableau
-          Serial.printf("%02X ", tab_CAN[i]);
-        }
-        Serial.println();
-        if (CAN_RX_msg.id == 0x01)
-        {
-          etat_RPI = CAN_RX_msg.buf[0];
-        }
+        etat_RPI = CAN_RX_msg.buf[0];
+      }
 
-        if (CAN_RX_msg.id == 0x500 + num_carte)
-        {
-          pre_action = action_a_faire;
-          action_a_faire = CAN_RX_msg.buf[0];
-        }
+      if (CAN_RX_msg.id == 0x500 + num_carte)
+      {
+        pre_action = action_a_faire;
+        action_a_faire = CAN_RX_msg.buf[0];
+        Serial.printf("action%d", action_a_faire);
+      }
 
-        if (CAN_RX_msg.id == 0x502 + num_carte)
-        {
-          sous_pince = CAN_RX_msg.buf[0];
-        }
+      if (CAN_RX_msg.id == 0x502 + num_carte)
+      {
+        sous_pince = CAN_RX_msg.buf[0];
+        Serial.printf("pince%d", sous_pince);
+      }
 
-        if (CAN_RX_msg.id == 0x504 + num_carte)
-        {
-          ack_action = CAN_RX_msg.buf[0];
-        }
+      if (CAN_RX_msg.id == 0x504 + num_carte)
+      {
+        ack_action = CAN_RX_msg.buf[0];
+        Serial.printf("aquser%d", ack_action);
       }
     }
 
@@ -117,6 +118,8 @@ void loop()
       {
         Serial.println("Attente de la RPI");
         verif_action = 0;
+        sous_pince = 0;
+        action_a_faire = 0;
       }
       break;
 
@@ -126,10 +129,11 @@ void loop()
         etat_ESP_RPI = 0;
         Serial.println("Retour à l'état 0 (RPI arrêtée)");
       }
-      Serial.printf("\nverif_action : %d", verif_action);
+      // Serial.printf("\nverif_action : %d", verif_action);
       if (ack_action == 2)
       {
         verif_action = 0;
+        // ordre de l'action = 0, donc on fait rien
       }
       break;
     }
@@ -137,34 +141,52 @@ void loop()
     /*Serial.printf("\nAction : %d",action_a_faire);
     Serial.printf("\nSous_pince %d\n",sous_pince);*/
 
-    static unsigned long lastSend = 0;
-    if (millis() - lastSend > 50)
+    if (millis() - lastSend > 100)
     { // toutes les 100 ms
       lastSend = millis();
 
-      CAN_TX_msg.id = 0x003;           // ID CAN
-      CAN_TX_msg.len = 1;              // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = on_pour_rpi; // Données a envoyés
-
+      CAN_TX_msg.id = 0x003 + num_carte; // ID CAN
+      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
+      Can.write(CAN_TX_msg);
+      // Serial.println(lastSend);
       CAN_TX_msg.id = 0x109;            // ID CAN
       CAN_TX_msg.len = 1;               // DLC : Nombre d'octets dans le message
       CAN_TX_msg.buf[0] = verif_action; // Données a envoyés
+      Can.write(CAN_TX_msg);
     }
-    if ((en_cours == 0 )|| (action_a_faire == pre_action))
+    // Serial.println();
+    // Serial.println(lastSend);
+
+    if ((verif_action == 0) && (etat_RPI == 1))
     {
       switch (action_a_faire)
       {
       case 0:
-        haut(PAS_HAUT);
         break;
       case 1:
-        bas(PAS_BAS);
+        /*bas(PAS_BAS);
+        delay(3000);
+        serrer(sous_pince);
+        delay(3000);
+        haut(PAS_HAUT);*/
+        verif_action = 1;
         break;
       case 2:
-        serrer(sous_pince);
+        /*ecarter();
+        delay(3000);
+        tourner(sous_pince);
+        delay(3000);
+        rapprocher();*/
+        verif_action = 1;
         break;
       case 3:
+        /*bas(PAS_BAS);
+        delay(3000);
         desserrer(sous_pince);
+        delay(3000);
+        haut(PAS_HAUT);*/
+        verif_action = 1;
         break;
       case 4:
         tourner(sous_pince);
@@ -209,7 +231,95 @@ void loop()
     // delay(1000);
   }
 }
+/*void CAN_(void *)
+{
+  TickType_t xLastWakeTime2;
+  xLastWakeTime2 = xTaskGetTickCount();
+  while (1)
+  {
+    Serial.println("Test");
 
+    if (Can.read(CAN_RX_msg))
+    {
+      Serial.printf("%d ", CAN_RX_msg.id);
+
+      if (CAN_RX_msg.id == 0x01)
+      {
+        etat_RPI = CAN_RX_msg.buf[0];
+      }
+
+      if (CAN_RX_msg.id == 0x500 + num_carte)
+      {
+        pre_action = action_a_faire;
+        action_a_faire = CAN_RX_msg.buf[0];
+        Serial.printf("action%d", action_a_faire);
+      }
+
+      if (CAN_RX_msg.id == 0x502 + num_carte)
+      {
+        sous_pince = CAN_RX_msg.buf[0];
+        Serial.printf("pince%d", sous_pince);
+      }
+
+      if (CAN_RX_msg.id == 0x504 + num_carte)
+      {
+        ack_action = CAN_RX_msg.buf[0];
+        Serial.printf("aquser%d", ack_action);
+      }
+    }
+
+    switch (etat_ESP_RPI)
+    {
+    case 0:
+      on_pour_rpi = 1; // Variable pour dire à la RPI que la carte Actionneur fonctionne
+      if (etat_RPI == 1)
+      {
+        Serial.println("RPI lancée");
+        etat_ESP_RPI = 1;
+      }
+      else
+      {
+        Serial.println("Attente de la RPI");
+        verif_action = 0;
+        sous_pince = 0;
+        action_a_faire = 0;
+      }
+      break;
+
+    case 1:
+      if (etat_RPI == 0 || etat_RPI == 2)
+      {
+        etat_ESP_RPI = 0;
+        Serial.println("Retour à l'état 0 (RPI arrêtée)");
+      }
+      Serial.printf("\nverif_action : %d", verif_action);
+      if (ack_action == 2)
+      {
+        verif_action = 0;
+        // ordre de l'action = 0, donc on fait rien
+      }
+      break;
+    }
+
+
+
+    static unsigned long lastSend = 0;
+    if (millis() - lastSend > 50)
+    { // toutes les 100 ms
+      lastSend = millis();
+
+      CAN_TX_msg.id = 0x003 + num_carte; // ID CAN
+      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
+
+      CAN_TX_msg.id = 0x109;            // ID CAN
+      CAN_TX_msg.len = 1;               // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = verif_action; // Données a envoyés
+    }
+    Serial.println();
+    vTaskDelayUntil(&xLastWakeTime2, pdMS_TO_TICKS(1));
+  }
+}*/
 void reception(char ch)
 {
 
@@ -245,3 +355,20 @@ void reception(char ch)
     chaine += ch;
   }
 }
+
+/*Pour les actionneurs on aura deux cartes
+Pour moi la N°0 ça sera celle de devant, et le N°1 celle de derrière.
+Pour envoyer des infos avec le CAN, en gros j'ajoute à l'ID un offset correspondant au N° de la carte
+
+Type mouvement :
+1 : Attraper
+2 : Retourner  ecarter quand on retrourne
+3 : Relacher
+
+Noisette a manipulee :
+1 : La pince fixe
+2 : La pince qui peut se lever
+12 : Les deux
+
+Quand la pince aura fini son action, il faudra envoyé une confirmation d'une valeur de 1 sur l'ID 0x109, et j'enverrai un accusé de réception égal à 2 sur les ID 0x504 ou 0x505 en fonction du N° de la carte.  Là c'est exactement le même principe d'accusé de réception que sur la carte de l'Asservissement
+*/
