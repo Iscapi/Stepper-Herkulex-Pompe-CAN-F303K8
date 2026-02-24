@@ -28,8 +28,9 @@ int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_ac
 
 int en_cours = 0, pre_action = 0;
 static unsigned long lastSend = 0;
+int temp = 0, E = 0;
 void reception(char ch);
-void CAN_(void *);
+// void CAN_(void *);
 
 String serie;
 void setup()
@@ -44,8 +45,11 @@ void setup()
                            // Serial.print("APB1 clock: ");
                            // Serial.println(HAL_RCC_GetPCLK1Freq());
 
-  // initStepper();
-  // init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
+  Can.setFilter(0, 0x01, 0x1FFFFFFF);
+  Can.setFilter(1, 0x502, 0x1FFFFFFF);
+  Can.setFilter(2, 0x500, 0x1FFFFFFF);
+  Can.setFilter(3, 0x504, 0x1FFFFFFF);
+
   delay(5000);
 
   /*servo_serer.setLedColor(HerkulexLed::Green);
@@ -58,13 +62,11 @@ void setup()
   servo_rotae.setPosition(900, 150, HerkulexLed::Green); // Ouvre la pince
   servo_serer.setPosition(900, 150, HerkulexLed::Blue); // Ouvre la pince
   */
-  /*haut(50);
-  desserrer(12);
-  delay(1000);
-  rapprocher();*/
+
   Serial.println("Test1");
   // xTaskCreate(CAN_, "CAN", 16000, NULL, 13, &_CAN_);
   Serial.println("Tes2");
+  temp = millis();
   vTaskStartScheduler();
   Serial.println("Insufficient RAM");
   while (1)
@@ -76,9 +78,11 @@ void loop()
 {
   while (1)
   {
+    Serial.print("test");
+
     if (Can.read(CAN_RX_msg))
     {
-      Serial.printf("%d ", CAN_RX_msg.id);
+      Serial.printf("ID:%03X ", CAN_RX_msg.id);
 
       if (CAN_RX_msg.id == 0x01)
       {
@@ -113,6 +117,12 @@ void loop()
       {
         Serial.println("RPI lancée");
         etat_ESP_RPI = 1;
+        initStepper();
+        init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
+        haut(50);
+        desserrer(12);
+        delay(1000);
+        rapprocher();
       }
       else
       {
@@ -120,6 +130,7 @@ void loop()
         verif_action = 0;
         sous_pince = 0;
         action_a_faire = 0;
+        E = 0;
       }
       break;
 
@@ -133,6 +144,9 @@ void loop()
       if (ack_action == 2)
       {
         verif_action = 0;
+        sous_pince = 0;
+        action_a_faire = 0;
+        E = 0;
         // ordre de l'action = 0, donc on fait rien
       }
       break;
@@ -165,37 +179,121 @@ void loop()
       case 0:
         break;
       case 1:
-        /*bas(PAS_BAS);
-        delay(3000);
-        serrer(sous_pince);
-        delay(3000);
-        haut(PAS_HAUT);*/
-        verif_action = 1;
+        switch (E)
+        {
+        case 0:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.print("bas");
+            bas(PAS_BAS);
+            E++;
+            temp = millis();
+          }
+          break;
+        case 1:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.printf("serrer%d", sous_pince);
+            serrer(sous_pince);
+            E++;
+            temp = millis();
+          }
+
+          break;
+        case 2:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.print("haut");
+            haut(PAS_HAUT);
+            E++;
+            temp = millis();
+          }
+          break;
+        case 3:
+          verif_action = 1;
+          E = 4;
+          break;
+        case 4:
+          break;
+        }
         break;
       case 2:
-        /*ecarter();
-        delay(3000);
-        tourner(sous_pince);
-        delay(3000);
-        rapprocher();*/
-        verif_action = 1;
+        switch (E)
+        {
+        case 0:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.print("ecarter");
+            ecarter();
+            E++;
+            temp = millis();
+          }
+          break;
+        case 1:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.printf("tourner%d", sous_pince);
+            tourner(sous_pince);
+            E++;
+            temp = millis();
+          }
+
+          break;
+        case 2:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.print("rapprocher");
+            rapprocher();
+            E++;
+            temp = millis();
+          }
+          break;
+        case 3:
+          verif_action = 1;
+          E = 4;
+          break;
+        case 4:
+          break;
+        }
         break;
       case 3:
-        /*bas(PAS_BAS);
-        delay(3000);
-        desserrer(sous_pince);
-        delay(3000);
-        haut(PAS_HAUT);*/
-        verif_action = 1;
-        break;
-      case 4:
-        tourner(sous_pince);
-        break;
-      case 5:
-        ecarter();
-        break;
-      case 6:
-        rapprocher();
+        switch (E)
+        {
+        case 0:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.print("bas");
+            bas(PAS_BAS);
+            E++;
+            temp = millis();
+          }
+          break;
+        case 1:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.printf("desserer%d", sous_pince);
+            desserrer(sous_pince);
+            E++;
+            temp = millis();
+          }
+
+          break;
+        case 2:
+          if ((millis() - temp) > 3000)
+          {
+            Serial.print("haut");
+            haut(PAS_HAUT);
+            E++;
+            temp = millis();
+          }
+          break;
+        case 3:
+          verif_action = 1;
+          E = 4;
+          break;
+        case 4:
+          break;
+        }
         break;
       default:
         break;
