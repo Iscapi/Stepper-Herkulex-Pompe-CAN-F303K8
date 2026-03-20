@@ -119,10 +119,23 @@ void loop()
         etat_ESP_RPI = 1;
         initStepper();
         init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
-        haut(50);
+        haut(abs(pas_act - PAS_HAUT));
+        pas_act = PAS_HAUT;
+
         desserrer(12);
-        delay(1000);
         rapprocher();
+        // change_id(5, servo_rotae, servo_serer);
+        /*for (int i = 0x00; i < 0xFE; i++)
+     {
+       Serial.printf("0x%02X  %d\n",i,i);
+       servo_rotae.setID(i);
+       servo_rotae.setLedColor(HerkulexLed::Green);
+       delay(1000);
+       servo_rotae.setLedColor(HerkulexLed::Blue);
+       delay(1000);
+
+     }*/
+        // servo_rotae.setPosition(300, 150, HerkulexLed::Green);
       }
       else
       {
@@ -164,9 +177,9 @@ void loop()
       CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
       Can.write(CAN_TX_msg);
       // Serial.println(lastSend);
-      CAN_TX_msg.id = 0x109;            // ID CAN
-      CAN_TX_msg.len = 1;               // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = verif_action; // Données a envoyés
+      CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
+      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
       Can.write(CAN_TX_msg);
     }
     // Serial.println();
@@ -182,16 +195,17 @@ void loop()
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1500)
           {
             Serial.print("bas");
-            bas(PAS_BAS);
+            bas(abs(pas_act - PAS_BAS));
+            pas_act = PAS_BAS;
             E++;
             temp = millis();
           }
           break;
         case 1:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1000)
           {
             Serial.printf("serrer%d", sous_pince);
             serrer(sous_pince);
@@ -201,10 +215,11 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1500)
           {
             Serial.print("haut");
-            haut(PAS_HAUT);
+            haut(abs(pas_act - PAS_HAUT));
+            pas_act = PAS_HAUT;
             E++;
             temp = millis();
           }
@@ -221,7 +236,7 @@ void loop()
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1000)
           {
             Serial.print("ecarter");
             ecarter();
@@ -230,7 +245,7 @@ void loop()
           }
           break;
         case 1:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1000)
           {
             Serial.printf("tourner%d", sous_pince);
             tourner(sous_pince);
@@ -240,7 +255,7 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1000)
           {
             Serial.print("rapprocher");
             rapprocher();
@@ -260,16 +275,17 @@ void loop()
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1500)
           {
             Serial.print("bas");
-            bas(PAS_BAS);
+            bas(abs(pas_act - PAS_BAS));
+            pas_act = PAS_BAS;
             E++;
             temp = millis();
           }
           break;
         case 1:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1000)
           {
             Serial.printf("desserer%d", sous_pince);
             desserrer(sous_pince);
@@ -279,10 +295,11 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 3000)
+          if ((millis() - temp) > 1500)
           {
             Serial.print("haut");
-            haut(PAS_HAUT);
+            haut(abs(pas_act - PAS_HAUT));
+            pas_act = PAS_HAUT;
             E++;
             temp = millis();
           }

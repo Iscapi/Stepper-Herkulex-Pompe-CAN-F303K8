@@ -8,11 +8,13 @@
 
 #define position_defaut 300
 
-#define position_retourner 900
+#define position_retourner 800
 
 #define position_attraper 600
 
-#define position_rapprocher 280
+#define position_attraper_interieur 610
+
+#define position_rapprocher 275
 
 HardwareSerial Serial1(USART1);
 HerkulexServoBus herkulex_bus(Serial1);
@@ -20,18 +22,18 @@ HerkulexServoBus herkulex_bus(Serial1);
 
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
 // pince gauche
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x01);
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
-/* pince droit
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
+//pince droit
 HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
-HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x09);
+HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
+HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
 HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
-*/
+
 
 // Variables pour gérer l'intervalle de mise à jour
 unsigned long last_update = 0; // Stocke le temps de la dernière mise à jour
@@ -85,13 +87,13 @@ void serrer(int pince)
   switch (pince)
   {
   case 1:
-    servo_attraper_interieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+    servo_attraper_interieur.setPosition(position_attraper_interieur, 150, HerkulexLed::Green); // Ouvre la pince
     break;
   case 2:
     servo_attraper_exterieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
     break;
   case 12:
-    servo_attraper_interieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
+    servo_attraper_interieur.setPosition(position_attraper_interieur, 150, HerkulexLed::Green); // Ouvre la pince
     servo_attraper_exterieur.setPosition(position_attraper, 150, HerkulexLed::Green); // Ouvre la pince
     break;
   default:
