@@ -6,7 +6,7 @@
 #include "STEPPER.h"
 #include <STM32_CAN.h>
 
-#define PAS_BAS 0
+#define PAS_BAS 10
 #define PAS_HAUT 700
 
 STM32_CAN Can(CAN1, DEF); // Use PA11/12 pins for CAN1.
@@ -22,7 +22,7 @@ int tab_CAN[8];
 int ID = 0;
 int etat_rotae = 1;
 
-int num_carte = 0;
+int num_carte = 1;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
 int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
 
@@ -46,9 +46,9 @@ void setup()
                            // Serial.println(HAL_RCC_GetPCLK1Freq());
 
   Can.setFilter(0, 0x01, 0x1FFFFFFF);
-  Can.setFilter(1, 0x502, 0x1FFFFFFF);
-  Can.setFilter(2, 0x500, 0x1FFFFFFF);
-  Can.setFilter(3, 0x504, 0x1FFFFFFF);
+  Can.setFilter(1, 0x502 + num_carte, 0x1FFFFFFF);
+  Can.setFilter(2, 0x500 + num_carte, 0x1FFFFFFF);
+  Can.setFilter(3, 0x504 + num_carte, 0x1FFFFFFF);
 
   delay(5000);
 
@@ -78,34 +78,35 @@ void loop()
 {
   while (1)
   {
-    Serial.print("test");
+    // Serial.print("test");
 
     if (Can.read(CAN_RX_msg))
     {
-      Serial.printf("ID:%03X ", CAN_RX_msg.id);
+      // Serial.printf("ID:%03X ", CAN_RX_msg.id);
 
       if (CAN_RX_msg.id == 0x01)
       {
         etat_RPI = CAN_RX_msg.buf[0];
+        Serial.printf("RPI%d\n", etat_RPI);
       }
 
       if (CAN_RX_msg.id == 0x500 + num_carte)
       {
         pre_action = action_a_faire;
         action_a_faire = CAN_RX_msg.buf[0];
-        Serial.printf("action%d", action_a_faire);
+        Serial.printf("action%d\n", action_a_faire);
       }
 
       if (CAN_RX_msg.id == 0x502 + num_carte)
       {
         sous_pince = CAN_RX_msg.buf[0];
-        Serial.printf("pince%d", sous_pince);
+        Serial.printf("pince%d\n", sous_pince);
       }
 
       if (CAN_RX_msg.id == 0x504 + num_carte)
       {
         ack_action = CAN_RX_msg.buf[0];
-        Serial.printf("aquser%d", ack_action);
+        Serial.printf("aquser%d\n", ack_action);
       }
     }
 
@@ -114,16 +115,18 @@ void loop()
     case 0:
       on_pour_rpi = 1; // Variable pour dire à la RPI que la carte Actionneur fonctionne
       if (etat_RPI == 1)
-      {
-        Serial.println("RPI lancée");
+      {pas_act = 0;
+        // Serial.println("RPI lancée");
         etat_ESP_RPI = 1;
         initStepper();
+        delay(1000);
         init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
+        delay(1000);
         haut(abs(pas_act - PAS_HAUT));
         pas_act = PAS_HAUT;
-
         desserrer(12);
         rapprocher();
+        tourner(12);
         // change_id(5, servo_rotae, servo_serer);
         /*for (int i = 0x00; i < 0xFE; i++)
      {
@@ -139,7 +142,7 @@ void loop()
       }
       else
       {
-        Serial.println("Attente de la RPI");
+        // Serial.println("Attente de la RPI");
         verif_action = 0;
         sous_pince = 0;
         action_a_faire = 0;
@@ -151,7 +154,7 @@ void loop()
       if (etat_RPI == 0 || etat_RPI == 2)
       {
         etat_ESP_RPI = 0;
-        Serial.println("Retour à l'état 0 (RPI arrêtée)");
+        // Serial.println("Retour à l'état 0 (RPI arrêtée)");
       }
       // Serial.printf("\nverif_action : %d", verif_action);
       if (ack_action == 2)
@@ -195,9 +198,9 @@ void loop()
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 1500)
+          if ((millis() - temp) > 00)
           {
-            Serial.print("bas");
+            // Serial.print("bas");
             bas(abs(pas_act - PAS_BAS));
             pas_act = PAS_BAS;
             E++;
@@ -205,9 +208,9 @@ void loop()
           }
           break;
         case 1:
-          if ((millis() - temp) > 1000)
+          if ((millis() - temp) > 500)
           {
-            Serial.printf("serrer%d", sous_pince);
+            // Serial.printf("serrer%d", sous_pince);
             serrer(sous_pince);
             E++;
             temp = millis();
@@ -215,9 +218,9 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 1500)
+          if ((millis() - temp) > 1000)
           {
-            Serial.print("haut");
+            // Serial.print("haut");
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             E++;
@@ -236,18 +239,18 @@ void loop()
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 1000)
+          if ((millis() - temp) > 00)
           {
-            Serial.print("ecarter");
+            // Serial.print("ecarter");
             ecarter();
             E++;
             temp = millis();
           }
           break;
         case 1:
-          if ((millis() - temp) > 1000)
+          if ((millis() - temp) > 500)
           {
-            Serial.printf("tourner%d", sous_pince);
+            // Serial.printf("tourner%d", sous_pince);
             tourner(sous_pince);
             E++;
             temp = millis();
@@ -255,9 +258,9 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 1000)
+          if ((millis() - temp) > 500)
           {
-            Serial.print("rapprocher");
+            // Serial.print("rapprocher");
             rapprocher();
             E++;
             temp = millis();
@@ -275,9 +278,9 @@ void loop()
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 1500)
+          if ((millis() - temp) > 00)
           {
-            Serial.print("bas");
+            // Serial.print("bas");
             bas(abs(pas_act - PAS_BAS));
             pas_act = PAS_BAS;
             E++;
@@ -285,9 +288,9 @@ void loop()
           }
           break;
         case 1:
-          if ((millis() - temp) > 1000)
+          if ((millis() - temp) > 400)
           {
-            Serial.printf("desserer%d", sous_pince);
+            // Serial.printf("desserer%d", sous_pince);
             desserrer(sous_pince);
             E++;
             temp = millis();
@@ -295,9 +298,9 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 1500)
+          if ((millis() - temp) > 200)
           {
-            Serial.print("haut");
+            // Serial.print("haut");
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             E++;

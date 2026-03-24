@@ -51,7 +51,7 @@ void haut(int pas)
     digitalWrite(PIN_STEP, HIGH);
     delayMicroseconds(600);
     digitalWrite(PIN_STEP, LOW);
-    delayMicroseconds(1000);
+    delayMicroseconds(600);
   }
 }
 
@@ -65,6 +65,6 @@ void bas(int pas)
     digitalWrite(PIN_STEP, HIGH);
     delayMicroseconds(600);
     digitalWrite(PIN_STEP, LOW);
-    delayMicroseconds(1000);
+    delayMicroseconds(600);
   }
 }
