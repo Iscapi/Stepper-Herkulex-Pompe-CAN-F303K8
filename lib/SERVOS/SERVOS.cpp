@@ -21,18 +21,18 @@ HerkulexServoBus herkulex_bus(Serial1);
 // Initialisation de la liaison série matérielle sur l'UART1
 
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
-// pince arrière
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
+// pince avant 0
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
-//pince avant
-/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
+//pince arrière 1
+HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
 
 
 // Variables pour gérer l'intervalle de mise à jour
@@ -77,7 +77,7 @@ void tourner(int pince)
     servo_retourner_interieur.setPosition(position, 100, HerkulexLed::Blue); // Position 90°
     break;
   case 2:
-    servo_attraper_exterieur.setPosition(position, 100, HerkulexLed::Green); // Ouvre la pince
+    servo_retourner_exterieur.setPosition(position, 100, HerkulexLed::Green); // Ouvre la pince
     break;
   case 12:
     servo_retourner_interieur.setPosition(position, 100, HerkulexLed::Blue); // Position 90°

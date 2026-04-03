@@ -7,7 +7,8 @@
 #include <STM32_CAN.h>
 
 #define PAS_BAS 10
-#define PAS_HAUT 700
+#define PAS_Retourner 700
+#define PAS_HAUT 970
 
 STM32_CAN Can(CAN1, DEF); // Use PA11/12 pins for CAN1.
 
@@ -74,7 +75,6 @@ void setup()
 }
 
 void loop()
-
 {
   while (1)
   {
@@ -83,7 +83,6 @@ void loop()
     if (Can.read(CAN_RX_msg))
     {
       // Serial.printf("ID:%03X ", CAN_RX_msg.id);
-
       if (CAN_RX_msg.id == 0x01)
       {
         etat_RPI = CAN_RX_msg.buf[0];
@@ -119,13 +118,15 @@ void loop()
         // Serial.println("RPI lancée");
         etat_ESP_RPI = 1;
         initStepper();
-        delay(1000);
+        delay(1500);
         init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
-        delay(1000);
-        haut(abs(pas_act - PAS_HAUT));
+        delay(1500);
+        haut(abs(pas_act - (PAS_HAUT)));
         pas_act = PAS_HAUT;
         desserrer(12);
+        delay(1000);
         rapprocher();
+        delay(1000);
         tourner(12);
         // change_id(5, servo_rotae, servo_serer);
         /*for (int i = 0x00; i < 0xFE; i++)
@@ -208,7 +209,7 @@ void loop()
           }
           break;
         case 1:
-          if ((millis() - temp) > 500)
+          if ((millis() - temp) > 600)
           {
             // Serial.printf("serrer%d", sous_pince);
             serrer(sous_pince);
@@ -225,6 +226,7 @@ void loop()
             pas_act = PAS_HAUT;
             E++;
             temp = millis();
+            verif_action = 1;
           }
           break;
         case 3:
@@ -242,6 +244,8 @@ void loop()
           if ((millis() - temp) > 00)
           {
             // Serial.print("ecarter");
+            bas(abs(pas_act - PAS_Retourner));
+            pas_act = PAS_Retourner;
             ecarter();
             E++;
             temp = millis();
@@ -258,12 +262,15 @@ void loop()
 
           break;
         case 2:
-          if ((millis() - temp) > 500)
+          if ((millis() - temp) > 1500)
           {
             // Serial.print("rapprocher");
+            haut(abs(pas_act - PAS_HAUT));
+            pas_act = PAS_HAUT;
             rapprocher();
             E++;
             temp = millis();
+            verif_action = 1;
           }
           break;
         case 3:
@@ -304,6 +311,7 @@ void loop()
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             E++;
+            verif_action = 1;
             temp = millis();
           }
           break;
