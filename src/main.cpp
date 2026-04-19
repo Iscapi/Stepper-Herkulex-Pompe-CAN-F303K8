@@ -15,15 +15,15 @@ STM32_CAN Can(CAN1, DEF); // Use PA11/12 pins for CAN1.
 static CAN_message_t CAN_TX_msg;
 static CAN_message_t CAN_RX_msg;
 
-HerkulexServo servo_rotae(herkulex_bus, 0x06);
-HerkulexServo servo_serer(herkulex_bus, 0x08);
+HerkulexServo servo_rotae(herkulex_bus, 0x02);
+HerkulexServo servo_serer(herkulex_bus, 0x05);
 TaskHandle_t _CAN_;
 
 int tab_CAN[8];
 int ID = 0;
 int etat_rotae = 1;
 
-int num_carte = 1;
+int num_carte = 0;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
 int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
 
@@ -32,7 +32,6 @@ static unsigned long lastSend = 0;
 int temp = 0, E = 0;
 void reception(char ch);
 // void CAN_(void *);
-
 String serie;
 void setup()
 {
@@ -89,20 +88,20 @@ void loop()
         Serial.printf("RPI%d\n", etat_RPI);
       }
 
-      if (CAN_RX_msg.id == 0x500 + num_carte)
+      if ((CAN_RX_msg.id == 0x500 + num_carte) && verif_action != 2)
       {
         pre_action = action_a_faire;
         action_a_faire = CAN_RX_msg.buf[0];
         Serial.printf("action%d\n", action_a_faire);
       }
 
-      if (CAN_RX_msg.id == 0x502 + num_carte)
+      if ((CAN_RX_msg.id == 0x502 + num_carte) )
       {
         sous_pince = CAN_RX_msg.buf[0];
         Serial.printf("pince%d\n", sous_pince);
       }
 
-      if (CAN_RX_msg.id == 0x504 + num_carte)
+      if ((CAN_RX_msg.id == 0x504 + num_carte))
       {
         ack_action = CAN_RX_msg.buf[0];
         Serial.printf("aquser%d\n", ack_action);
@@ -114,19 +113,21 @@ void loop()
     case 0:
       on_pour_rpi = 1; // Variable pour dire à la RPI que la carte Actionneur fonctionne
       if (etat_RPI == 1)
-      {pas_act = 0;
+      {
+        pas_act = 0;
         // Serial.println("RPI lancée");
         etat_ESP_RPI = 1;
+        delay(500 * num_carte);
         initStepper();
-        delay(1500);
+        delay(1000);
         init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
-        delay(1500);
+        delay(1000);
         haut(abs(pas_act - (PAS_HAUT)));
         pas_act = PAS_HAUT;
         desserrer(12);
-        delay(1000);
+        delay(100);
         rapprocher();
-        delay(1000);
+        delay(100);
         tourner(12);
         // change_id(5, servo_rotae, servo_serer);
         /*for (int i = 0x00; i < 0xFE; i++)
@@ -158,7 +159,7 @@ void loop()
         // Serial.println("Retour à l'état 0 (RPI arrêtée)");
       }
       // Serial.printf("\nverif_action : %d", verif_action);
-      if (ack_action == 2)
+      if (ack_action == 2 && action_a_faire != 2)
       {
         verif_action = 0;
         sous_pince = 0;
@@ -181,15 +182,18 @@ void loop()
       CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
       Can.write(CAN_TX_msg);
       // Serial.println(lastSend);
-      CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-      Can.write(CAN_TX_msg);
+      if (verif_action == 1)
+      {
+        CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
+        CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
+        CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
+        Can.write(CAN_TX_msg);
+      }
     }
     // Serial.println();
     // Serial.println(lastSend);
 
-    if ((verif_action == 0) && (etat_RPI == 1))
+    if ((verif_action != 1) && (etat_RPI == 1))
     {
       switch (action_a_faire)
       {
@@ -249,12 +253,19 @@ void loop()
             ecarter();
             E++;
             temp = millis();
+            
           }
           break;
         case 1:
-          if ((millis() - temp) > 500)
+          if ((millis() - temp) > 300)
           {
             // Serial.printf("tourner%d", sous_pince);
+            verif_action = 1;
+            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
+            CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
+            CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
+            Can.write(CAN_TX_msg);
+            verif_action = 2;
             tourner(sous_pince);
             E++;
             temp = millis();
@@ -270,11 +281,13 @@ void loop()
             rapprocher();
             E++;
             temp = millis();
-            verif_action = 1;
+            verif_action = 0;
+            sous_pince=0;
+            action_a_faire=0;
+            E = 3;
           }
           break;
         case 3:
-          verif_action = 1;
           E = 4;
           break;
         case 4:
@@ -288,18 +301,18 @@ void loop()
           if ((millis() - temp) > 00)
           {
             // Serial.print("bas");
-            bas(abs(pas_act - PAS_BAS));
+             bas(abs(pas_act - PAS_BAS));
             pas_act = PAS_BAS;
             E++;
             temp = millis();
           }
           break;
         case 1:
-          if ((millis() - temp) > 400)
+          if ((millis() - temp) > 200)
           {
             // Serial.printf("desserer%d", sous_pince);
             desserrer(sous_pince);
-            E++;
+             E++;
             temp = millis();
           }
 

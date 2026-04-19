@@ -22,18 +22,17 @@ HerkulexServoBus herkulex_bus(Serial1);
 
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
 // pince avant 0
-/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
+HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
-//pince arrière 1
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
+// pince arrière 1
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
-
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
 
 // Variables pour gérer l'intervalle de mise à jour
 unsigned long last_update = 0; // Stocke le temps de la dernière mise à jour
@@ -49,12 +48,22 @@ void init_serial_1_for_herkulex()
   Serial1.setRx(PIN_SW_RX); // Associe la broche RX à l'UART1
   Serial1.setTx(PIN_SW_TX); // Associe la broche TX à l'UART1
   Serial1.begin(115200);    // Initialise la communication série à 115200 bauds
-  all_servo.setTorqueOn();  // Active le couple du servo (mise sous tension)
+
   servo_attraper_interieur.setLedColor(HerkulexLed::Blue);
+  servo_attraper_interieur.setTorqueOn();
+  delay(100);
   servo_attraper_exterieur.setLedColor(HerkulexLed::Blue);
+  servo_attraper_exterieur.setTorqueOn();
+  delay(100);
   servo_retourner_interieur.setLedColor(HerkulexLed::Green);
+  servo_retourner_interieur.setTorqueOn();
+  delay(100);
   servo_retourner_exterieur.setLedColor(HerkulexLed::Green);
+  servo_retourner_exterieur.setTorqueOn();
+  delay(100);
+
   servo_ecarter_pince.setLedColor(HerkulexLed::Cyan);
+  servo_ecarter_pince.setTorqueOn();
 }
 
 void tourner(int pince)
@@ -99,7 +108,7 @@ void serrer(int pince)
     break;
   case 12:
     servo_attraper_interieur.setPosition(position_attraper_interieur, 100, HerkulexLed::Green); // Ouvre la pince
-    servo_attraper_exterieur.setPosition(position_attraper, 100, HerkulexLed::Green); // Ouvre la pince
+    servo_attraper_exterieur.setPosition(position_attraper, 100, HerkulexLed::Green);           // Ouvre la pince
     break;
   default:
     break;
@@ -126,13 +135,13 @@ void desserrer(int pince)
 }
 void ecarter(void)
 {
-  servo_ecarter_pince.setPosition(position_ecarter_pince, 100, HerkulexLed::Green); // Ouvre la pince
+  servo_ecarter_pince.setPosition(position_ecarter_pince, 60, HerkulexLed::Green); // Ouvre la pince
   herkulex_bus.executeMove();
   // servo_ecarter_pince.reboot();
 }
 void rapprocher(void)
 {
-  servo_ecarter_pince.setPosition(position_rapprocher, 100, HerkulexLed::Blue); // Ouvre la pince
+  servo_ecarter_pince.setPosition(position_rapprocher, 60, HerkulexLed::Blue); // Ouvre la pince
   herkulex_bus.executeMove();
   // servo_ecarter_pince.reboot();
 }
