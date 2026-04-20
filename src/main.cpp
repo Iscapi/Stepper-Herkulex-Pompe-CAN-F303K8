@@ -6,9 +6,9 @@
 #include "STEPPER.h"
 #include <STM32_CAN.h>
 
-#define PAS_BAS 10
+#define PAS_BAS       10
 #define PAS_Retourner 700
-#define PAS_HAUT 970
+#define PAS_HAUT      970
 
 STM32_CAN Can(CAN1, DEF); // Use PA11/12 pins for CAN1.
 
@@ -23,19 +23,20 @@ int tab_CAN[8];
 int ID = 0;
 int etat_rotae = 1;
 
-int num_carte = 1;
+int num_carte = 0;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
 int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
 
 int en_cours = 0, pre_action = 0;
 static unsigned long lastSend = 0;
 int temp = 0, E = 0;
+
 void reception(char ch);
 // void CAN_(void *);
 String serie;
+
 void setup()
 {
-
   Serial.begin(115200);
   Can.begin();
   // Can.setBaudRateValues(4, 11, 4, 1); // → 500 kbps avec APB1 à 32 MHz
@@ -45,7 +46,7 @@ void setup()
                            // Serial.print("APB1 clock: ");
                            // Serial.println(HAL_RCC_GetPCLK1Freq());
 
-  Can.setFilter(0, 0x01, 0x1FFFFFFF);
+  Can.setFilter(0, 0x01,              0x1FFFFFFF);
   Can.setFilter(1, 0x502 + num_carte, 0x1FFFFFFF);
   Can.setFilter(2, 0x500 + num_carte, 0x1FFFFFFF);
   Can.setFilter(3, 0x504 + num_carte, 0x1FFFFFFF);
@@ -69,8 +70,7 @@ void setup()
   temp = millis();
   vTaskStartScheduler();
   Serial.println("Insufficient RAM");
-  while (1)
-    ;
+  while (1);
 }
 
 void loop()
@@ -79,35 +79,37 @@ void loop()
   {
     // Serial.print("test");
 
+    // ── Lecture CAN ───────────────────────────────────────────
     if (Can.read(CAN_RX_msg))
     {
       // Serial.printf("ID:%03X ", CAN_RX_msg.id);
       if (CAN_RX_msg.id == 0x01)
       {
         etat_RPI = CAN_RX_msg.buf[0];
-        Serial.printf("RPI%d\n", etat_RPI);
+        //Serial.printf("RPI%d\n", etat_RPI);
       }
 
       if ((CAN_RX_msg.id == 0x500 + num_carte) && verif_action != 2)
       {
-        pre_action = action_a_faire;
+        pre_action     = action_a_faire;
         action_a_faire = CAN_RX_msg.buf[0];
-        Serial.printf("action%d\n", action_a_faire);
+       // Serial.printf("action%d\n", action_a_faire);
       }
 
-      if ((CAN_RX_msg.id == 0x502 + num_carte) )
+      if ((CAN_RX_msg.id == 0x502 + num_carte))
       {
         sous_pince = CAN_RX_msg.buf[0];
-        Serial.printf("pince%d\n", sous_pince);
+       // Serial.printf("pince%d\n", sous_pince);
       }
 
       if ((CAN_RX_msg.id == 0x504 + num_carte))
       {
         ack_action = CAN_RX_msg.buf[0];
-        Serial.printf("aquser%d\n", ack_action);
+       // Serial.printf("aquser%d\n", ack_action);
       }
     }
 
+    // ── Machine d'état RPI ────────────────────────────────────
     switch (etat_ESP_RPI)
     {
     case 0:
@@ -130,23 +132,22 @@ void loop()
         delay(100);
         tourner(12);
         // change_id(5, servo_rotae, servo_serer);
-       /* for (int i = 0x00; i < 0xFE; i++)
-     {
-       Serial.printf("0x%02X  %d\n",i,i);
-       servo_rotae.setID(i);
-       servo_rotae.setLedColor(HerkulexLed::Green);
-       delay(000);
-       servo_rotae.setLedColor(HerkulexLed::Blue);
-       delay(000);
-
-     }*/
+        /* for (int i = 0x00; i < 0xFE; i++)
+        {
+          Serial.printf("0x%02X  %d\n",i,i);
+          servo_rotae.setID(i);
+          servo_rotae.setLedColor(HerkulexLed::Green);
+          delay(000);
+          servo_rotae.setLedColor(HerkulexLed::Blue);
+          delay(000);
+        }*/
         // servo_rotae.setPosition(300, 150, HerkulexLed::Green);
       }
       else
       {
         // Serial.println("Attente de la RPI");
-        verif_action = 0;
-        sous_pince = 0;
+        verif_action   = 0;
+        sous_pince     = 0;
         action_a_faire = 0;
         E = 0;
       }
@@ -161,44 +162,49 @@ void loop()
       // Serial.printf("\nverif_action : %d", verif_action);
       if (ack_action == 2 && action_a_faire != 2)
       {
-        verif_action = 0;
-        sous_pince = 0;
+        verif_action   = 0;
+        sous_pince     = 0;
         action_a_faire = 0;
         E = 0;
         // ordre de l'action = 0, donc on fait rien
       }
+   
       break;
     }
 
     /*Serial.printf("\nAction : %d",action_a_faire);
     Serial.printf("\nSous_pince %d\n",sous_pince);*/
 
+    // ── Envoi CAN périodique (toutes les 100 ms) ─────────────
     if (millis() - lastSend > 100)
-    { // toutes les 100 ms
+    {
       lastSend = millis();
 
-      CAN_TX_msg.id = 0x003 + num_carte; // ID CAN
-      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
+      CAN_TX_msg.id     = 0x003 + num_carte; // ID CAN
+      CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = on_pour_rpi;       // Données a envoyés
       Can.write(CAN_TX_msg);
       // Serial.println(lastSend);
       if (verif_action == 1)
       {
-        CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-        CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-        CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
+        CAN_TX_msg.id     = 0x10C + num_carte; // ID CAN
+        CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+        CAN_TX_msg.buf[0] = verif_action;      // Données a envoyés
         Can.write(CAN_TX_msg);
       }
     }
     // Serial.println();
     // Serial.println(lastSend);
 
+    // ── Exécution des actions ─────────────────────────────────
     if ((verif_action != 1) && (etat_RPI == 1))
     {
       switch (action_a_faire)
       {
       case 0:
         break;
+
+      // ── ACTION 1 : ATTRAPER ──────────────────────────────
       case 1:
         switch (E)
         {
@@ -213,14 +219,13 @@ void loop()
           }
           break;
         case 1:
-          if ((millis() - temp) > 600)
+          if ((millis() - temp) > 400)
           {
             // Serial.printf("serrer%d", sous_pince);
             serrer(sous_pince);
             E++;
             temp = millis();
           }
-
           break;
         case 2:
           if ((millis() - temp) > 1000)
@@ -231,6 +236,9 @@ void loop()
             E++;
             temp = millis();
             verif_action = 1;
+
+            // Objet attrapé avec sous_pince → on met les pinces concernées à 1
+            maj_etat_pince(sous_pince, 1);
           }
           break;
         case 3:
@@ -241,59 +249,67 @@ void loop()
           break;
         }
         break;
+
+      // ── ACTION 2 : RETOURNER ─────────────────────────────
+      // On envoie immédiatement verif_action=1 à la réception de
+      // l'action pour signaler à la RPI qu'elle est prise en charge,
+      // puis on passe verif_action=2 pour continuer l'exécution
+      // complète (la condition d'entrée est verif_action != 1).
       case 2:
         switch (E)
         {
         case 0:
           if ((millis() - temp) > 00)
           {
+            // Accusé de réception immédiat vers la RPI
+            verif_action      = 1;
+            CAN_TX_msg.id     = 0x10C + num_carte; // ID CAN
+            CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+            CAN_TX_msg.buf[0] = verif_action;      // Données a envoyés
+            Can.write(CAN_TX_msg);
+            // On passe à 2 pour continuer l'exécution de l'action
+            verif_action = 2;
+
             // Serial.print("ecarter");
             bas(abs(pas_act - PAS_Retourner));
             pas_act = PAS_Retourner;
             ecarter();
             E++;
             temp = millis();
-            
           }
           break;
         case 1:
-          if ((millis() - temp) > 300)
+          if ((millis() - temp) > 00)
           {
             // Serial.printf("tourner%d", sous_pince);
-            verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-            CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-            CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-            Can.write(CAN_TX_msg);
-            verif_action = 2;
             tourner(sous_pince);
             E++;
             temp = millis();
           }
-
           break;
         case 2:
-          if ((millis() - temp) > 1500)
+          if ((millis() - temp) > 900)
           {
             // Serial.print("rapprocher");
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             rapprocher();
-            E++;
-            temp = millis();
-            verif_action = 0;
-            sous_pince=0;
-            action_a_faire=0;
+            verif_action   = 0;
+            sous_pince     = 0;
+            action_a_faire = 0;
             E = 3;
+            temp = millis();
           }
           break;
         case 3:
-          E = 4;
+          E = 0;
           break;
         case 4:
           break;
         }
         break;
+
+      // ── ACTION 3 : RELACHER ──────────────────────────────
       case 3:
         switch (E)
         {
@@ -301,24 +317,23 @@ void loop()
           if ((millis() - temp) > 00)
           {
             // Serial.print("bas");
-             bas(abs(pas_act - PAS_BAS));
+            bas(abs(pas_act - PAS_BAS));
             pas_act = PAS_BAS;
             E++;
             temp = millis();
           }
           break;
         case 1:
-          if ((millis() - temp) > 200)
+          if ((millis() - temp) > 00)
           {
             // Serial.printf("desserer%d", sous_pince);
             desserrer(sous_pince);
-             E++;
+            E++;
             temp = millis();
           }
-
           break;
         case 2:
-          if ((millis() - temp) > 200)
+          if ((millis() - temp) > 100)
           {
             // Serial.print("haut");
             haut(abs(pas_act - PAS_HAUT));
@@ -326,6 +341,13 @@ void loop()
             E++;
             verif_action = 1;
             temp = millis();
+
+            // Objet déposé → on remet les pinces concernées à 0
+            maj_etat_pince(sous_pince, 0);
+
+            // Reboot des Herkulex après chaque dépôt
+            restart_all_servo();
+            init_serial_1_for_herkulex();
           }
           break;
         case 3:
@@ -336,10 +358,15 @@ void loop()
           break;
         }
         break;
+
       default:
         break;
       }
     }
+
+    // ── Surveillance erreurs Herkulex (toutes les 500 ms) ────
+    
+
     // all_servo.reboot();
 
     /*delay(3000);
@@ -365,11 +392,11 @@ void loop()
        delay(1000);
        servo_rotae.setLedColor(HerkulexLed::Blue);
        delay(1000);
-
      }*/
     // delay(1000);
   }
 }
+
 /*void CAN_(void *)
 {
   TickType_t xLastWakeTime2;
@@ -440,8 +467,6 @@ void loop()
       break;
     }
 
-
-
     static unsigned long lastSend = 0;
     if (millis() - lastSend > 50)
     { // toutes les 100 ms
@@ -459,9 +484,9 @@ void loop()
     vTaskDelayUntil(&xLastWakeTime2, pdMS_TO_TICKS(1));
   }
 }*/
+
 void reception(char ch)
 {
-
   static int i = 0;
   static String chaine = "";
   String commande;
