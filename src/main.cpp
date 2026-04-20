@@ -23,7 +23,7 @@ int tab_CAN[8];
 int ID = 0;
 int etat_rotae = 1;
 
-int num_carte = 0;
+int num_carte = 1;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
 int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
 
@@ -130,14 +130,14 @@ void loop()
         delay(100);
         tourner(12);
         // change_id(5, servo_rotae, servo_serer);
-        /*for (int i = 0x00; i < 0xFE; i++)
+       /* for (int i = 0x00; i < 0xFE; i++)
      {
        Serial.printf("0x%02X  %d\n",i,i);
        servo_rotae.setID(i);
        servo_rotae.setLedColor(HerkulexLed::Green);
-       delay(1000);
+       delay(000);
        servo_rotae.setLedColor(HerkulexLed::Blue);
-       delay(1000);
+       delay(000);
 
      }*/
         // servo_rotae.setPosition(300, 150, HerkulexLed::Green);

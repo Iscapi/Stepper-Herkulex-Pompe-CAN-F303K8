@@ -22,17 +22,17 @@ HerkulexServoBus herkulex_bus(Serial1);
 
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
 // pince avant 0
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
 // pince arrière 1
-/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
+HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
 
 // Variables pour gérer l'intervalle de mise à jour
 unsigned long last_update = 0; // Stocke le temps de la dernière mise à jour
