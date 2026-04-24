@@ -16,6 +16,7 @@
 #define position_attraper           600
 #define position_attraper_interieur 610
 #define position_rapprocher         275
+#define position_retourner_exterieur 820
 
 // Broches série
 #define PIN_SW_RX PB7
@@ -42,7 +43,8 @@ void init_serial_1_for_herkulex();
 void test_herkulex();
 void test_connexion();
 int  detect_id(bool activate);
-void rotation_moteur(void);
+void restart_retourner(void);
+void curseur(void);
 void display_servo_position(void);
 int16_t get_servo_pos(HerkulexServo servo);
 void restart_all_servo(void);

@@ -9,17 +9,17 @@ HerkulexServoBus herkulex_bus(Serial1);
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
 
 // pince avant 0
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
 // pince arrière 1
-/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
+HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
 
 // Variables d'état des pinces (1 = objet présent, 0 = vide)
 int objet_pince_int = 0;
@@ -46,7 +46,9 @@ char etat_rota            = 0; // État actuel de la rotation du servo (0 -> 0°
 
 // Variables pour la position du servo
 int pos, pos_angle;
-
+void curseur(void){
+  servo_ecarter_pince.setPosition(560, 100, HerkulexLed::Yellow);
+}
 void init_serial_1_for_herkulex()
 {
   Serial1.setRx(PIN_SW_RX); // Associe la broche RX à l'UART1
@@ -83,7 +85,15 @@ void maj_etat_pince(int pince, int etat)
   if (pince == 2 || pince == 12) objet_pince_ext = etat;
   //Serial.printf("[PINCE] int=%d  ext=%d\n", objet_pince_int, objet_pince_ext);
 }
-
+void restart_retourner(void){
+  servo_retourner_exterieur.reboot();
+  delay(300);
+  servo_retourner_interieur.reboot();
+  delay(300);
+  servo_retourner_exterieur.setTorqueOn();
+  delay(300);
+  servo_retourner_interieur.setTorqueOn();
+}
 // ─────────────────────────────────────────────────────────────
 // Surveillance des erreurs Herkulex (à appeler dans la boucle).
 // Vérifie chaque servo toutes les 500 ms.
@@ -141,15 +151,17 @@ void check_herkulex_errors(void)
 
 void tourner(int pince)
 {
-  static int etat_rotae = 1, position;
+  static int etat_rotae = 1, position,position_ext;
   switch (etat_rotae)
   {
   case 0:
     position = position_defaut;
+    position_ext = position_defaut;
     etat_rotae = 1;
     break;
   case 1:
     position = position_retourner;
+    position_ext = position_retourner_exterieur;
     etat_rotae = 0;
     break;
   }
@@ -159,11 +171,11 @@ void tourner(int pince)
     servo_retourner_interieur.setPosition(position, 100, HerkulexLed::Blue); // Position 90°
     break;
   case 2:
-    servo_retourner_exterieur.setPosition(position, 100, HerkulexLed::Green); // Ouvre la pince
+    servo_retourner_exterieur.setPosition(position_ext, 100, HerkulexLed::Green); // Ouvre la pince
     break;
   case 12:
     servo_retourner_interieur.setPosition(position, 100, HerkulexLed::Blue); // Position 90°
-    servo_retourner_exterieur.setPosition(position, 100, HerkulexLed::Blue); // Position 90°
+    servo_retourner_exterieur.setPosition(position_ext, 100, HerkulexLed::Blue); // Position 90°
     break;
   default:
     break;
@@ -355,8 +367,16 @@ void get_all_servo_pos(
 
 void restart_all_servo(void)
 {
-  all_servo.reboot();
-  vTaskDelay(pdMS_TO_TICKS(225));
+  servo_attraper_interieur.reboot();
+  delay(300);
+  servo_attraper_exterieur.reboot();
+  delay(300);
+  servo_retourner_interieur.reboot();
+  delay(300);
+  servo_retourner_exterieur.reboot();
+  delay(300);
+  servo_ecarter_pince.reboot();
+  delay(300);
 }
 
 void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_)
@@ -380,12 +400,5 @@ void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_)
   delay(300); // pour être certain
   // Serial.print(1);
   new_.setLedColor(HerkulexLed::White);
-  while (1)
-  {
-    if (Serial.available() > 0)
-    {
-      char c = Serial.read();
-      if (c == 'f') break;
-    }
-  }
+
 }
