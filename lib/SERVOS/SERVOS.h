@@ -12,8 +12,8 @@
 #define position_ecarter            300
 #define position_ecarter_pince      350
 #define position_defaut             300
-#define position_retourner          785
-#define position_attraper           600
+#define position_retourner          820
+#define position_attraper           610
 #define position_attraper_interieur 610
 #define position_rapprocher         275
 #define position_retourner_exterieur 820
