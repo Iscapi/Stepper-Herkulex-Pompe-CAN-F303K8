@@ -30,6 +30,7 @@ int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_ac
 int en_cours = 0, pre_action = 0;
 static unsigned long lastSend = 0;
 int temp = 0, E = 0, mouv = 0, verif_curseur = 0;
+int action_suivante = 0;  // Pour stocker la prochaine action
 
 void reception(char ch);
 // void CAN_(void *);
@@ -39,32 +40,16 @@ void setup()
 {
   Serial.begin(115200);
   Can.begin();
-  // Can.setBaudRateValues(4, 11, 4, 1); // → 500 kbps avec APB1 à 32 MHz
   Can.setBaudRate(500000); // 500KBPS
-                           // delay(10000);
-                           // Serial.println("CAN init OK");
-                           // Serial.print("APB1 clock: ");
-                           // Serial.println(HAL_RCC_GetPCLK1Freq());
 
-  Can.setFilter(0, 0x01, 0x1FFFFFFF);
+  Can.setFilter(0, 0x01,              0x1FFFFFFF);
   Can.setFilter(1, 0x502 + num_carte, 0x1FFFFFFF);
   Can.setFilter(2, 0x500 + num_carte, 0x1FFFFFFF);
   Can.setFilter(3, 0x504 + num_carte, 0x1FFFFFFF);
-  Can.setFilter(4, 0x206, 0x1FFFFFFF);
-  Can.setFilter(5, 0x008, 0x1FFFFFFF);
+  Can.setFilter(4, 0x206,             0x1FFFFFFF);
+  Can.setFilter(5, 0x008,             0x1FFFFFFF);
 
   delay(5000);
-
-  /*servo_serer.setLedColor(HerkulexLed::Green);
-  servo_rotae.setLedColor(HerkulexLed::Blue);
-  change_id(5, servo_rotae, servo_serer);
-  delay(1000);*/
-  /*servo_rotae.setPosition(300, 150, HerkulexLed::Green); // Ouvre la pince
-  servo_serer.setPosition(300, 150, HerkulexLed::Blue); // Ouvre la pince
-  delay (1000);
-  servo_rotae.setPosition(900, 150, HerkulexLed::Green); // Ouvre la pince
-  servo_serer.setPosition(900, 150, HerkulexLed::Blue); // Ouvre la pince
-  */
 
   Serial.println("Test1");
   // xTaskCreate(CAN_, "CAN", 16000, NULL, 13, &_CAN_);
@@ -81,63 +66,47 @@ void loop()
   while (1)
   {
     vTaskDelay(1);
-    // Serial.print("test");
 
     // ── Lecture CAN ───────────────────────────────────────────
     if (Can.read(CAN_RX_msg))
     {
-      // Serial.printf("ID:%03X ", CAN_RX_msg.id);
       if (CAN_RX_msg.id == 0x01)
       {
         etat_RPI = CAN_RX_msg.buf[0];
-        // Serial.printf("RPI%d\n", etat_RPI);
       }
 
-      if ((CAN_RX_msg.id == 0x500 + num_carte))
+      if ((CAN_RX_msg.id == 0x500 + num_carte)&&action_a_faire !=2)
       {
-        pre_action = action_a_faire;
-        if (verif_action == 2)
-        {
-          tab_CAN[0] = CAN_RX_msg.buf[0];
-          if (tab_CAN[0] != 2)
-          {
-            verif_action = 0;
-            E = 0;
-          }
-        }
-        else
-        {
-          action_a_faire = CAN_RX_msg.buf[0];
-        }
-        if (pre_action != 0 && action_a_faire != 0 && action_a_faire != pre_action)
-        {
-          E = 0;
-          verif_action = 0;
-        }
+        int nouvelle_action = CAN_RX_msg.buf[0];
 
-        // Serial.printf("action%d\n", action_a_faire);
+        // Si aucune action en cours (E == 0), accepter directement
+        if (E == 0)
+        {
+          action_a_faire = nouvelle_action;
+          //Serial.printf("Nouvelle action acceptee: %d\n", action_a_faire);
+        }
       }
 
-      if ((CAN_RX_msg.id == 0x502 + num_carte))
+      if ((CAN_RX_msg.id == 0x502 + num_carte)&&action_a_faire != 2)
       {
         sous_pince = CAN_RX_msg.buf[0];
-        // Serial.printf("pince%d\n", sous_pince);
       }
 
       if ((CAN_RX_msg.id == 0x504 + num_carte))
       {
         ack_action = CAN_RX_msg.buf[0];
-        // Serial.printf("aquser%d\n", ack_action);
+        //Serial.printf("ACK CAN recu: %d (action=%d, E=%d)\n",
+        //             ack_action, action_a_faire, E);
       }
+
       if ((CAN_RX_msg.id == 0x206) && num_carte == 0)
       {
         mouv = CAN_RX_msg.buf[0];
-        // Serial.printf("mouv%d\n", mouv);
       }
+
       if ((CAN_RX_msg.id == 0x008) && num_carte == 0)
       {
         verif_curseur = CAN_RX_msg.buf[0];
-        // Serial.printf("mouv%d\n", mouv);
       }
     }
 
@@ -149,40 +118,30 @@ void loop()
       if (etat_RPI == 1)
       {
         pas_act = 0;
-        // Serial.println("RPI lancée");
         etat_ESP_RPI = 1;
         delay(500 * num_carte);
         initStepper();
         delay(1000);
         haut(abs(pas_act - (PAS_HAUT)));
         pas_act = PAS_HAUT;
-        delay(10000);
+        delay(15000);
         init_serial_1_for_herkulex(); // Fonction init de "HERKULEX.h"
+        // init_serial_1_for_herkulex() envoie déjà les positions de repos
+        // et attend 1200ms, on attend ensuite la confirmation de mouvement
+        while (!desserrer(12));
         delay(1000);
-        
-        desserrer(12);
+        while (!rapprocher());
         delay(1000);
-        rapprocher();
-        delay(1000);
-        tourner(12);
-        // change_id(5, servo_rotae, servo_serer);
-        /* for (int i = 0x00; i < 0xFE; i++)
-        {
-          Serial.printf("0x%02X  %d\n",i,i);
-          servo_rotae.setID(i);
-          servo_rotae.setLedColor(HerkulexLed::Green);
-          delay(000);
-          servo_rotae.setLedColor(HerkulexLed::Blue);
-          delay(000);
-        }*/
-        // servo_rotae.setPosition(300, 150, HerkulexLed::Green);
+        while (!tourner(12));
+        delay(1200);
       }
       else
       {
-        // Serial.println("Attente de la RPI");
-        verif_action = 0;
-        sous_pince = 0;
+        verif_action   = 0;
+        sous_pince     = 0;
         action_a_faire = 0;
+        action_suivante = 0;
+        ack_action     = 0;
         E = 0;
       }
       break;
@@ -191,229 +150,302 @@ void loop()
       if ((etat_RPI == 0 || etat_RPI == 2))
       {
         etat_ESP_RPI = 0;
-        // Serial.println("Retour à l'état 0 (RPI arrêtée)");
       }
-      // Serial.printf("\nverif_action : %d", verif_action);
-      if (ack_action == 2 && action_a_faire != 2 && verif_action == 1)
-      {
-        verif_action = 0;
-        sous_pince = 0;
-        action_a_faire = 0;
-        ack_action = 0;
-        E = 0;
-        // ordre de l'action = 0, donc on fait rien
-      }
-
       break;
     }
-
-    /*Serial.printf("\nAction : %d",action_a_faire);
-    Serial.printf("\nSous_pince %d\n",sous_pince);*/
 
     // ── Envoi CAN périodique (toutes les 100 ms) ─────────────
     if (millis() - lastSend > 100)
     {
       lastSend = millis();
 
-      CAN_TX_msg.id = 0x003 + num_carte; // ID CAN
-      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
+      CAN_TX_msg.id     = 0x003 + num_carte; // ID CAN
+      CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = on_pour_rpi;       // Données a envoyés
       Can.write(CAN_TX_msg);
-      // Serial.println(lastSend);
-      if (verif_action == 1)
-      {
-        CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-        CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-        CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-        Can.write(CAN_TX_msg);
-      }
-      
+
+      CAN_TX_msg.id     = 0x10C + num_carte; // ID CAN
+      CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+      CAN_TX_msg.buf[0] = verif_action;      // Données a envoyés
+      Can.write(CAN_TX_msg);
     }
-    
-    // Serial.println();
-    // Serial.println(lastSend);
 
     // ── Exécution des actions ─────────────────────────────────
-    if ((verif_action != 1) && (etat_RPI == 1) && mouv != 9)
+    if ((etat_RPI == 1) && (mouv != 9 && mouv != 10))
     {
       switch (action_a_faire)
       {
       case 0:
+        // Aucune action en cours, charger l'action suivante si disponible
+        if (action_suivante != 0)
+        {
+          action_a_faire  = action_suivante;
+          action_suivante = 0;
+          //Serial.printf("Chargement action suivante: %d\n", action_a_faire);
+        }
         break;
 
       // ── ACTION 1 : ATTRAPER ──────────────────────────────
+      // E=0 : reset ack + descente
+      // E=1 : serrage (non-bloquant, attend true)
+      // E=2 : attente fin serrage (1800ms depuis E1) + ACK + montée + maj pince
+      // E=3 : attente ACK RPI (ack_action==2) + reset
       case 1:
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 00)
-          {
-            // Serial.print("bas");
-            bas(abs(pas_act - PAS_BAS));
-            pas_act = PAS_BAS;
-            E++;
-            temp = millis();
-          }
+          // CRUCIAL: Reset ack_action au début de l'action
+          ack_action = 0;
+          //Serial.println("Action 1 - E0: Descente (ack_action reset)");
+          bas(abs(pas_act - PAS_BAS));
+          pas_act = PAS_BAS;
+          E = 1;
+          temp = millis();
           break;
+
         case 1:
           if ((millis() - temp) > 00)
           {
-            // Serial.printf("serrer%d", sous_pince);
-            serrer(sous_pince);
-            E++;
-            temp = millis();
+            // serrer() non-bloquant : retourne true dès que mouvement détecté
+            // (ou si déjà en position), reboot si pas de mouvement après 100ms
+            if (serrer(sous_pince))
+            {
+              //Serial.printf("Action 1 - E1: Serrage confirme pince %d\n", sous_pince);
+              E = 2;
+              temp = millis();
+            }
           }
           break;
+
         case 2:
-          if ((millis() - temp) > 1000)
+          // Laisse le serrage se compléter (1800ms depuis détection du mouvement)
+          if ((millis() - temp) > 00)
           {
-            // Serial.print("haut");
-            verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-        CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-        CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-        Can.write(CAN_TX_msg);
+            //Serial.printf("Action 1 - E2: Montee + ACK\n");
+            verif_action      = 1;
+            CAN_TX_msg.id     = 0x10C + num_carte; // ID CAN
+            CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+            CAN_TX_msg.buf[0] = verif_action;      // Données a envoyés
+            Can.write(CAN_TX_msg);
+
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
-            E++;
-            temp = millis();
-            verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-        CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-        CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-        Can.write(CAN_TX_msg);
-
-            // Objet attrapé avec sous_pince → on met les pinces concernées à 1
             maj_etat_pince(sous_pince, 1);
+
+            E = 3;
+            temp = millis();
           }
           break;
+
         case 3:
-          // restart_retourner();
-          // verif_action = 1;
-          E = 4;
-          break;
-        case 4:
+          // Attend l'ACK de la RPI (ack_action == 2) avant de reset
+          if (ack_action == 2)
+          {
+            //Serial.println("Action 1 - E3: ACK confirme, reset complet");
+            verif_action   = 0;
+            sous_pince     = 0;
+            action_a_faire = 0;
+            ack_action     = 0;
+            E = 0;
+          }
+          else
+          {
+            // Debug : affiche toutes les secondes si on attend encore
+            static unsigned long dernierDebug = 0;
+            if ((millis() - dernierDebug) > 1000)
+            {
+              Serial.printf("Action 1 - E3: En attente ACK (ack_action=%d)\n", ack_action);
+              dernierDebug = millis();
+            }
+          }
           break;
         }
         break;
 
       // ── ACTION 2 : RETOURNER ─────────────────────────────
       // On envoie immédiatement verif_action=1 à la réception de
-      // l'action pour signaler à la RPI qu'elle est prise en charge,
-      // puis on passe verif_action=2 pour continuer l'exécution
-      // complète (la condition d'entrée est verif_action != 1).
+      // l'action pour signaler à la RPI qu'elle est prise en charge.
+      // On attend ensuite l'ACK de la RPI avant de commencer le mouvement.
+      //
+      // E=0 : reset ack + ACK immédiat vers RPI
+      // E=1 : attente ACK RPI (ack_action==2)
+      // E=2 : ecarter (non-bloquant) + descente
+      // E=3 : attente 500ms + tourner (non-bloquant, attend true)
+      // E=4 : attente 1500ms (rotation complète) + montée + rapprocher + reset
       case 2:
         switch (E)
         {
         case 0:
+          // CRUCIAL: Reset ack_action au début de l'action
+          ack_action = 0;
+         // Serial.println("Action 2 - E0: Envoi ACK immediat (ack_action reset)");
+          // Envoi ACK immédiat
+          verif_action      = 1;
+          CAN_TX_msg.id     = 0x10C + num_carte; // ID CAN
+          CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+          CAN_TX_msg.buf[0] = verif_action;      // Données a envoyés
+          Can.write(CAN_TX_msg);
+
+          E = 1;
+          temp = millis();
+          break;
+
+        case 1:
+          // Attente ACK de la RPI avant de commencer le mouvement
+          if (ack_action == 2)
+          {
+          //  Serial.println("Action 2 - E1: ACK confirme, debut action");
+            ack_action = 0;
+            E = 2;
+            temp = millis();
+          }
+          else
+          {
+            static unsigned long dernierDebug = 0;
+            if ((millis() - dernierDebug) > 1000)
+            {
+           //   Serial.printf("Action 2 - E1: En attente ACK (ack_action=%d)\n", ack_action);
+              dernierDebug = millis();
+            }
+          }
+          break;
+
+        case 2:
           if ((millis() - temp) > 00)
           {
-            // Accusé de réception immédiat vers la RPI
-            verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-            CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-            CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-            Can.write(CAN_TX_msg);
-            // On passe à 2 pour continuer l'exécution de l'action
-            verif_action = 2;
-
-            // Serial.print("ecarter");
-            ecarter();
-            bas(abs(pas_act - PAS_Retourner));
-            pas_act = PAS_Retourner;
-
-            E++;
-            temp = millis();
+            // ecarter() non-bloquant : retourne true dès que mouvement détecté
+            if (ecarter())
+            {
+              //Serial.println("Action 2 - E2: Ecarter confirme + Descente");
+              bas(abs(pas_act - PAS_Retourner));
+              pas_act = PAS_Retourner;
+              E = 3;
+              temp = millis();
+            }
           }
           break;
-        case 1:
-          if ((millis() - temp) > 500)
+
+        case 3:
+          if ((millis() - temp) > 00)
           {
-            // Serial.printf("tourner%d", sous_pince);
-            tourner(sous_pince);
-            E++;
-            temp = millis();
+            // tourner() non-bloquant : retourne true dès que mouvement détecté
+            if (tourner(sous_pince))
+            {
+              //Serial.printf("Action 2 - E3: Rotation confirmee pince %d\n", sous_pince);
+              E = 4;
+              temp = millis();
+            }
           }
           break;
-        case 2:
-          if ((millis() - temp) > 1500)
+
+        case 4:
+          // Laisse la rotation se compléter (1500ms depuis détection du mouvement)
+          if ((millis() - temp) > 00)
           {
-            // Serial.print("rapprocher");
+            //Serial.println("Action 2 - E4: Montee + Rapprocher + Reset");
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
-            rapprocher();
-            verif_action = 0;
-            sous_pince = 0;
-            action_a_faire = 0;
-            E = 0;
-            temp = millis();
-            //restart_all_servo();
-            //init_serial_1_for_herkulex();
+
+            // rapprocher() non-bloquant : attend confirmation avant de reset
+            if (rapprocher())
+            {
+              verif_action   = 0;
+              sous_pince     = 0;
+              action_a_faire = 0;
+              E = 0;
+              temp = millis();
+            }
           }
-          break;
-        case 3:
-          E = 0;
-          break;
-        case 4:
           break;
         }
         break;
 
       // ── ACTION 3 : RELACHER ──────────────────────────────
+      // E=0 : reset ack + descente
+      // E=1 : desserrage (non-bloquant, attend true)
+      // E=2 : attente fin desserrage (300ms) + ACK + montée + reboot + réinit position
+      // E=3 : attente ACK RPI (ack_action==2) + reset
       case 3:
         switch (E)
         {
         case 0:
-          if ((millis() - temp) > 00)
-          {
-            // Serial.print("bas");
-            bas(abs(pas_act - PAS_BAS));
-            pas_act = PAS_BAS;
-            E++;
-            temp = millis();
-          }
+          // CRUCIAL: Reset ack_action au début de l'action
+          ack_action = 0;
+          //Serial.println("Action 3 - E0: Descente (ack_action reset)");
+          bas(abs(pas_act - PAS_BAS));
+          pas_act = PAS_BAS;
+          E = 1;
+          temp = millis();
           break;
+
         case 1:
           if ((millis() - temp) > 00)
           {
-            // Serial.printf("desserer%d", sous_pince);
-            desserrer(sous_pince);
-            E++;
-            temp = millis();
+            // desserrer() non-bloquant : retourne true dès que mouvement détecté
+            // (ou si déjà en position), reboot si pas de mouvement après 100ms
+            if (desserrer(sous_pince))
+            {
+              //Serial.printf("Action 3 - E1: Desserrage confirme pince %d\n", sous_pince);
+              E = 2;
+              temp = millis();
+            }
           }
           break;
+
         case 2:
-          if ((millis() - temp) > 250)
-          {verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-        CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-        CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-        Can.write(CAN_TX_msg);
-            // Serial.print("haut");
+          // Laisse le desserrage se compléter (300ms depuis détection du mouvement)
+          if ((millis() - temp) > 00)
+          {
+            //Serial.printf("Action 3 - E2: Montee + ACK + Reboot\n");
+            verif_action      = 1;
+            CAN_TX_msg.id     = 0x10C + num_carte; // ID CAN
+            CAN_TX_msg.len    = 1;                 // DLC : Nombre d'octets dans le message
+            CAN_TX_msg.buf[0] = verif_action;      // Données a envoyés
+            Can.write(CAN_TX_msg);
+
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
-            E++;
-            verif_action = 1;
-            temp = millis();
-
-            // Objet déposé → on remet les pinces concernées à 0
-            verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte; // ID CAN
-            CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-            CAN_TX_msg.buf[0] = verif_action;  // Données a envoyés
-            Can.write(CAN_TX_msg);
             maj_etat_pince(sous_pince, 0);
-            restart_all_servo();
-            init_serial_1_for_herkulex();
+
+            // Reboot + vérification erreurs + réinit (moment sûr)
+            //restart_all_servo();
+            //check_herkulex_errors_once();
+            //init_serial_1_for_herkulex();
+            // init_serial_1_for_herkulex() envoie les positions de repos + attend 1200ms
+
+            // Retour position repos avec confirmation de mouvement
+            while (!rapprocher());
+            delay(1000);
+            while (!tourner(12));
+            delay(1200);
+            while (!desserrer(12));
+            delay(1000);
+
+            E = 3;
+            temp = millis();
           }
           break;
-        case 3:
-          // verif_action = 1;
-          //  Reboot des Herkulex après chaque dépôt
 
-          E = 4;
-          break;
-        case 4:
+        case 3:
+          // Attend l'ACK de la RPI (ack_action == 2) avant de reset
+          if (ack_action == 2)
+          {
+            //Serial.println("Action 3 - E3: ACK confirme, reset complet");
+            verif_action   = 0;
+            sous_pince     = 0;
+            action_a_faire = 0;
+            ack_action     = 0;
+            E = 0;
+          }
+          else
+          {
+            static unsigned long dernierDebug = 0;
+            if ((millis() - dernierDebug) > 1000)
+            {
+             // Serial.printf("Action 3 - E3: En attente ACK (ack_action=%d)\n", ack_action);
+              dernierDebug = millis();
+            }
+          }
           break;
         }
         break;
@@ -422,29 +454,28 @@ void loop()
         break;
       }
     }
-    else if (mouv == 9 && num_carte == 0)
+    else if ((mouv == 9 || mouv == 10) && num_carte == 0)
     {
       if (verif_curseur == 0)
       {
-        curseur();
+        // curseur() non-bloquant : attend confirmation
+        while (!curseur());
         bas(pas_act);
         pas_act = 0;
       }
       else if (verif_curseur != 0)
       {
         haut(abs(pas_act - PAS_HAUT));
-            pas_act = PAS_HAUT;
-        rapprocher();
+        pas_act = PAS_HAUT;
+        while (!rapprocher());
       }
     }
-    else if (verif_curseur != 0 && num_carte == 0 && mouv == 9)
+    else if (verif_curseur != 0 && num_carte == 0 && (mouv == 9 || mouv == 10))
     {
       haut(abs(pas_act - PAS_HAUT));
-            pas_act = PAS_HAUT;
-      rapprocher();
+      pas_act = PAS_HAUT;
+      while (!rapprocher());
     }
-    // ── Surveillance erreurs Herkulex (toutes les 500 ms) ────
-
     // all_servo.reboot();
 
     /*delay(3000);
@@ -458,7 +489,6 @@ void loop()
     rapprocher();
     delay(1000);
     bas(700);
-
     delay(1000);
     desserrer();*/
 
@@ -515,7 +545,7 @@ void loop()
     switch (etat_ESP_RPI)
     {
     case 0:
-      on_pour_rpi = 1; // Variable pour dire à la RPI que la carte Actionneur fonctionne
+      on_pour_rpi = 1;
       if (etat_RPI == 1)
       {
         Serial.println("RPI lancée");
@@ -547,16 +577,16 @@ void loop()
 
     static unsigned long lastSend = 0;
     if (millis() - lastSend > 50)
-    { // toutes les 100 ms
+    {
       lastSend = millis();
 
-      CAN_TX_msg.id = 0x003 + num_carte; // ID CAN
-      CAN_TX_msg.len = 1;                // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = on_pour_rpi;   // Données a envoyés
+      CAN_TX_msg.id = 0x003 + num_carte;
+      CAN_TX_msg.len = 1;
+      CAN_TX_msg.buf[0] = on_pour_rpi;
 
-      CAN_TX_msg.id = 0x109;            // ID CAN
-      CAN_TX_msg.len = 1;               // DLC : Nombre d'octets dans le message
-      CAN_TX_msg.buf[0] = verif_action; // Données a envoyés
+      CAN_TX_msg.id = 0x109;
+      CAN_TX_msg.len = 1;
+      CAN_TX_msg.buf[0] = verif_action;
     }
     Serial.println();
     vTaskDelayUntil(&xLastWakeTime2, pdMS_TO_TICKS(1));

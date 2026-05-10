@@ -25,54 +25,139 @@ HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
 int objet_pince_int = 0;
 int objet_pince_ext = 0;
 
-// Tableau des servos surveillés par check_herkulex_errors
-static HerkulexServo* servos_surveilles[] = {
-  &servo_attraper_interieur,
-  &servo_attraper_exterieur,
-  &servo_retourner_interieur,
-  &servo_retourner_exterieur,
-  &servo_ecarter_pince
-};
-static const char* noms_servos[] = {
-  "ATT_INT", "ATT_EXT", "ROT_INT", "ROT_EXT", "ECART"
-};
+// Tableau des servos surveillés par check_herkulex_errors_once
+static HerkulexServo *servos_surveilles[] = {
+    &servo_attraper_interieur,
+    &servo_attraper_exterieur,
+    &servo_retourner_interieur,
+    &servo_retourner_exterieur,
+    &servo_ecarter_pince};
+static const char *noms_servos[] = {
+    "ATT_INT", "ATT_EXT", "ROT_INT", "ROT_EXT", "ECART"};
 static const uint8_t NB_SERVOS = 5;
 
 // Variables pour gérer l'intervalle de mise à jour
 unsigned long last_update = 0; // Stocke le temps de la dernière mise à jour
-unsigned long now         = 0; // Stocke le temps actuel
-bool toggle               = false; // Booléen pour alterner entre deux positions
-char etat_rota            = 0; // État actuel de la rotation du servo (0 -> 0°, 1 -> 90°, 2 -> 180°)
+unsigned long now = 0;         // Stocke le temps actuel
+bool toggle = false;           // Booléen pour alterner entre deux positions
+char etat_rota = 0;            // État actuel de la rotation du servo (0 -> 0°, 1 -> 90°, 2 -> 180°)
 
 // Variables pour la position du servo
 int pos, pos_angle;
-void curseur(void){
-  servo_ecarter_pince.setPosition(560, 100, HerkulexLed::Yellow);
+
+// ─────────────────────────────────────────────────────────────
+// Structure de suivi d'un servo en mouvement.
+// Une instance par servo commandé.
+// ─────────────────────────────────────────────────────────────
+struct EtatServo
+{
+  bool actif;            // true = commande envoyée, on surveille
+  bool termine;          // true = mouvement confirmé pour cet appel
+  uint16_t pos_depart;   // position lue avant l'envoi de la commande
+  unsigned long t_envoi; // timestamp de l'envoi
+};
+
+// ─────────────────────────────────────────────────────────────
+// Fonction interne de pilotage d'un servo avec vérification.
+//
+// 1er appel :
+//   - Lit la position de départ
+//   - Si déjà à la cible (marge 20) → retourne true immédiatement
+//   - Sinon envoie la commande, mémorise pos_depart et timestamp
+//
+// Appels suivants (toutes les ~1ms via vTaskDelay(1)) :
+//   - Après 100ms : lit la position actuelle
+//     → Si changement > 20 : mouvement détecté → true
+//     → Si pas de changement : reboot + réessai (bloquant ~300ms)
+//
+// Retourne true quand le mouvement est confirmé ou déjà en position.
+// ─────────────────────────────────────────────────────────────
+static bool piloter_servo(HerkulexServo *servo, const char *nom,
+                          uint16_t cible, uint8_t playtime, HerkulexLed led,
+                          EtatServo &etat)
+{
+  if (etat.termine)
+    return true;
+
+  // 1er appel : lit la position de départ
+  etat.pos_depart = servo->getPosition();
+
+  // Déjà en position (marge 20 pas) → pas besoin de bouger
+  if (abs((int16_t)etat.pos_depart - (int16_t)cible) <= 20)
+  {
+    Serial.printf("[HERKULEX] %s deja en position (%d / cible %d)\n",
+                  nom, etat.pos_depart, cible);
+    etat.termine = true;
+    return true;
+  }
+  else
+  {
+    // Envoie la commande
+    servo->setPosition(cible, playtime, led);
+    etat.t_envoi = millis();
+    etat.actif = true;
+    Serial.printf("[HERKULEX] %s commande envoyee (dep=%d cible=%d)\n",
+                  nom, etat.pos_depart, cible);
+    return false;
+  }
+
+  // Vérification après 100ms
+  if (millis() - etat.t_envoi >= 100)
+  {
+    uint16_t pos_actuelle = servo->getPosition();
+
+    if ((int16_t)pos_actuelle == (int16_t)etat.pos_depart)
+    {
+      Serial.printf("[HERKULEX] %s pas de mouvement apres 100ms -> reboot\n", nom);
+      servo->reboot();
+      delay(300);
+      servo->setTorqueOn();
+      delay(100);
+      servo->setPosition(cible, playtime, led);
+      etat.t_envoi = millis();
+      Serial.printf("[HERKULEX] %s commande renvoyee apres reboot\n", nom);
+      return false;
+    }
+  }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Initialisation du bus Herkulex.
+// Envoie la position de repos immédiatement après setTorqueOn()
+// pour écraser la goal position stockée avant le reboot et
+// éviter que le servo parte vers une position indéterminée.
+// ─────────────────────────────────────────────────────────────
 void init_serial_1_for_herkulex()
 {
   Serial1.setRx(PIN_SW_RX); // Associe la broche RX à l'UART1
   Serial1.setTx(PIN_SW_TX); // Associe la broche TX à l'UART1
   Serial1.begin(115200);    // Initialise la communication série à 115200 bauds
 
-  servo_attraper_interieur.setLedColor(HerkulexLed::Blue);
+  // Pour chaque servo : torque ON puis position de repos immédiate
+  // pour écraser la goal position stockée avant le reboot
+  // et éviter que le servo parte vers une position indéterminée
   servo_attraper_interieur.setTorqueOn();
-  delay(200);
-  servo_attraper_exterieur.setLedColor(HerkulexLed::Blue);
-  servo_attraper_exterieur.setTorqueOn();
-  delay(200);
-  servo_retourner_interieur.setLedColor(HerkulexLed::Green);
-  servo_retourner_interieur.setTorqueOn();
-  delay(200);
-  servo_retourner_exterieur.setLedColor(HerkulexLed::Green);
-  servo_retourner_exterieur.setTorqueOn();
-  delay(200);
+  servo_attraper_interieur.setPosition(position_ecarter, 130, HerkulexLed::Blue);
+  delay(100);
 
-  servo_ecarter_pince.setLedColor(HerkulexLed::Cyan);
+  servo_attraper_exterieur.setTorqueOn();
+  servo_attraper_exterieur.setPosition(position_ecarter, 130, HerkulexLed::Blue);
+  delay(100);
+
+  servo_retourner_interieur.setTorqueOn();
+  servo_retourner_interieur.setPosition(position_defaut, 120, HerkulexLed::Green);
+  delay(100);
+
+  servo_retourner_exterieur.setTorqueOn();
+  servo_retourner_exterieur.setPosition(position_defaut, 120, HerkulexLed::Green);
+  delay(100);
+
   servo_ecarter_pince.setTorqueOn();
-  delay(200);
-    // Vide le buffer RX après toutes les initialisations
-  //while (Serial1.available()) Serial1.read();
+  servo_ecarter_pince.setPosition(position_rapprocher, 100, HerkulexLed::Cyan);
+
+  // Laisse le temps aux servos d'atteindre leur position de repos
+  // avant que la suite du code envoie d'autres commandes
+  delay(1200);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -82,157 +167,193 @@ void init_serial_1_for_herkulex()
 // ─────────────────────────────────────────────────────────────
 void maj_etat_pince(int pince, int etat)
 {
-  if (pince == 1 || pince == 12) objet_pince_int = etat;
-  if (pince == 2 || pince == 12) objet_pince_ext = etat;
-  //Serial.printf("[PINCE] int=%d  ext=%d\n", objet_pince_int, objet_pince_ext);
+  if (pince == 1 || pince == 12)
+    objet_pince_int = etat;
+  if (pince == 2 || pince == 12)
+    objet_pince_ext = etat;
+  Serial.printf("[PINCE] int=%d  ext=%d\n", objet_pince_int, objet_pince_ext);
 }
-void restart_retourner(void){
-  servo_retourner_exterieur.reboot();
-  delay(300);
-  servo_retourner_interieur.reboot();
-  delay(300);
-  servo_retourner_exterieur.setTorqueOn();
-  delay(300);
-  servo_retourner_interieur.setTorqueOn();
-}
+
 // ─────────────────────────────────────────────────────────────
-// Surveillance des erreurs Herkulex (à appeler dans la boucle).
-// Vérifie chaque servo toutes les 500 ms.
-// Si une erreur est détectée : reboot du servo fautif uniquement
-// + réactivation du couple + LED rouge pour identification.
+// Vérifie tous les servos UNE seule fois.
+// À appeler uniquement après restart_all_servo() car le bus
+// vient d'être réinitialisé : pas de risque de corruption.
 // ─────────────────────────────────────────────────────────────
+void check_herkulex_errors_once(void)
+{
+  for (uint8_t i = 0; i < NB_SERVOS; i++)
+  {
+    uint8_t status_raw = servos_surveilles[i]
+                             ->readRam(HerkulexRamRegister::StatusError);
+    HerkulexStatusError err = static_cast<HerkulexStatusError>(status_raw);
+
+    if (err != HerkulexStatusError::None)
+    {
+      Serial.printf("[HERKULEX] Erreur servo %s : 0x%02X -> reboot\n",
+                    noms_servos[i], status_raw);
+
+      // Diagnostic détaillé
+      if ((err & HerkulexStatusError::Overload) != HerkulexStatusError::None)
+        Serial.println("  -> Surcharge");
+      if ((err & HerkulexStatusError::TemperatureLimit) != HerkulexStatusError::None)
+        Serial.println("  -> Temperature excessive");
+      if ((err & HerkulexStatusError::InputVoltage) != HerkulexStatusError::None)
+        Serial.println("  -> Tension hors limites");
+      if ((err & HerkulexStatusError::DriverFault) != HerkulexStatusError::None)
+        Serial.println("  -> Defaut driver");
+
+      // Reboot du servo fautif : safe car init_serial va suivre
+      servos_surveilles[i]->reboot();
+      delay(300);
+    }
+    else
+    {
+      Serial.printf("[HERKULEX] Servo %s OK\n", noms_servos[i]);
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
-// Surveillance passive : surveille uniquement les bits de statut
-// renvoyés naturellement lors des moves, sans polluer le bus
-// avec des getStatus() actifs qui corrompent le buffer RX.
-// À appeler uniquement hors action comme avant.
+// Actions servo.
+// Retournent false tant que le mouvement n'est pas confirmé,
+// true dès que c'est le cas (ou si déjà en position).
+// Chaque fonction a ses propres variables statiques d'état,
+// remises à zéro automatiquement quand elle retourne true.
 // ─────────────────────────────────────────────────────────────
-void check_herkulex_errors(void)
+
+bool tourner(int pince)
 {
-  static unsigned long derniere_verif = 0;
-  static uint8_t index_servo = 0;
+  static int etat_rotae = 1;
+  static int position = 0;
 
-  if (millis() - derniere_verif < 500) return;
-  derniere_verif = millis();
+  // États statiques des deux servos de rotation
+  static EtatServo etat_int = {};
+  static EtatServo etat_ext = {};
 
-  uint8_t status_raw = servos_surveilles[index_servo]
-                         ->readRam(HerkulexRamRegister::StatusError);
-
-  // Vide le buffer RX de l'UART pour éviter que les octets
-  // de réponse résiduels corrompent la prochaine commande de mouvement
-  while (Serial1.available()) Serial1.read();
-
-  HerkulexStatusError err = static_cast<HerkulexStatusError>(status_raw);
-
-  if (err != HerkulexStatusError::None)
+  // Calcule la position cible uniquement au premier appel du cycle
+  // (détecté par : aucun servo actif ni terminé)
+  if (!etat_int.actif && !etat_int.termine &&
+      !etat_ext.actif && !etat_ext.termine)
   {
-    Serial.printf("[HERKULEX] Erreur servo %s : 0x%02X -> reboot\n",
-                  noms_servos[index_servo], status_raw);
-
-    if ((err & HerkulexStatusError::Overload)         != HerkulexStatusError::None)
-      Serial.println("  -> Surcharge");
-    if ((err & HerkulexStatusError::TemperatureLimit) != HerkulexStatusError::None)
-      Serial.println("  -> Temperature excessive");
-    if ((err & HerkulexStatusError::InputVoltage)     != HerkulexStatusError::None)
-      Serial.println("  -> Tension hors limites");
-    if ((err & HerkulexStatusError::DriverFault)      != HerkulexStatusError::None)
-      Serial.println("  -> Defaut driver");
-
-    servos_surveilles[index_servo]->reboot();
-    delay(300);
-    servos_surveilles[index_servo]->setTorqueOn();
-    servos_surveilles[index_servo]->setLedColor(HerkulexLed::Red);
-
-    // Flush aussi après le reboot
-    while (Serial1.available()) Serial1.read();
+    switch (etat_rotae)
+    {
+    case 0:
+      position = position_defaut;
+      etat_rotae = 1;
+      break;
+    case 1:
+      position = position_retourner;
+      etat_rotae = 0;
+      break;
+    }
   }
 
-  index_servo = (index_servo + 1) % NB_SERVOS;
-}
+  bool int_ok = true;
+  bool ext_ok = true;
 
-void tourner(int pince)
-{
-  static int etat_rotae = 1, position,position_ext;
-  switch (etat_rotae)
+  if (pince == 1 || pince == 12)
+    int_ok = piloter_servo(&servo_retourner_interieur, "ROT_INT",
+                           position, 120, HerkulexLed::Blue, etat_int);
+  if (pince == 2 || pince == 12)
+    ext_ok = piloter_servo(&servo_retourner_exterieur, "ROT_EXT",
+                           position, 120, HerkulexLed::Green, etat_ext);
+
+  if (int_ok && ext_ok)
   {
-  case 0:
-    position = position_defaut;
-    position_ext = position_defaut;
-    etat_rotae = 1;
-    break;
-  case 1:
-    position = position_retourner;
-    position_ext = position_retourner_exterieur;
-    etat_rotae = 0;
-    break;
+    // Reset pour le prochain appel
+    etat_int = {};
+    etat_ext = {};
+    return true;
   }
-  switch (pince)
+  return false;
+}
+
+bool serrer(int pince)
+{
+  static EtatServo etat_int = {};
+  static EtatServo etat_ext = {};
+
+  bool int_ok = true;
+  bool ext_ok = true;
+
+  if (pince == 1 || pince == 12)
+    int_ok = piloter_servo(&servo_attraper_interieur, "ATT_INT",
+                           position_attraper_interieur, 130, HerkulexLed::Green, etat_int);
+  if (pince == 2 || pince == 12)
+    ext_ok = piloter_servo(&servo_attraper_exterieur, "ATT_EXT",
+                           position_attraper, 130, HerkulexLed::Green, etat_ext);
+
+  if (int_ok && ext_ok)
   {
-  case 1:
-    servo_retourner_interieur.setPosition(position, 150, HerkulexLed::Blue); // Position 90°
-    break;
-  case 2:
-    servo_retourner_exterieur.setPosition(position_ext, 150, HerkulexLed::Green); // Ouvre la pince
-    break;
-  case 12:
-    servo_retourner_interieur.setPosition(position, 150, HerkulexLed::Blue); // Position 90°
-    servo_retourner_exterieur.setPosition(position_ext, 150, HerkulexLed::Blue); // Position 90°
-    break;
-  default:
-    break;
+    etat_int = {};
+    etat_ext = {};
+    return true;
   }
+  return false;
 }
 
-void serrer(int pince)
+bool desserrer(int pince)
 {
-  switch (pince)
+  static EtatServo etat_int = {};
+  static EtatServo etat_ext = {};
+
+  bool int_ok = true;
+  bool ext_ok = true;
+
+  if (pince == 1 || pince == 12)
+    int_ok = piloter_servo(&servo_attraper_interieur, "ATT_INT",
+                           position_ecarter, 130, HerkulexLed::Blue, etat_int);
+  if (pince == 2 || pince == 12)
+    ext_ok = piloter_servo(&servo_attraper_exterieur, "ATT_EXT",
+                           position_ecarter, 130, HerkulexLed::Green, etat_ext);
+
+  if (int_ok && ext_ok)
   {
-  case 1:
-    servo_attraper_interieur.setPosition(position_attraper_interieur, 80, HerkulexLed::Green); // Ferme la pince
-    break;
-  case 2:
-    servo_attraper_exterieur.setPosition(position_attraper, 80, HerkulexLed::Green); // Ferme la pince
-    break;
-  case 12:
-    servo_attraper_interieur.setPosition(position_attraper_interieur, 80, HerkulexLed::Green); // Ferme la pince
-    servo_attraper_exterieur.setPosition(position_attraper,           80, HerkulexLed::Green); // Ferme la pince
-    break;
-  default:
-    break;
+    etat_int = {};
+    etat_ext = {};
+    return true;
   }
+  return false;
 }
 
-void desserrer(int pince)
+bool ecarter(void)
 {
-  switch (pince)
+  static EtatServo etat = {};
+  bool ok = piloter_servo(&servo_ecarter_pince, "ECART",
+                          position_ecarter_pince, 100, HerkulexLed::Green, etat);
+  if (ok)
   {
-  case 1:
-    servo_attraper_interieur.setPosition(position_ecarter, 120, HerkulexLed::Blue); // Ouvre la pince
-    break;
-  case 2:
-    servo_attraper_exterieur.setPosition(position_ecarter, 120, HerkulexLed::Green); // Ouvre la pince
-    break;
-  case 12:
-    servo_attraper_interieur.setPosition(position_ecarter, 120, HerkulexLed::Blue); // Ouvre la pince
-    servo_attraper_exterieur.setPosition(position_ecarter, 120, HerkulexLed::Blue); // Ouvre la pince
-    break;
-  default:
-    break;
+    herkulex_bus.executeMove();
+    etat = {};
   }
+  return ok;
 }
 
-void ecarter(void)
+bool rapprocher(void)
 {
-  servo_ecarter_pince.setPosition(position_ecarter_pince, 150, HerkulexLed::Green); // Ouvre la pince
-  herkulex_bus.executeMove();
-  // servo_ecarter_pince.reboot();
+  static EtatServo etat = {};
+  bool ok = piloter_servo(&servo_ecarter_pince, "ECART",
+                          position_rapprocher, 100, HerkulexLed::Blue, etat);
+  if (ok)
+  {
+    herkulex_bus.executeMove();
+    etat = {};
+  }
+  return ok;
 }
 
-void rapprocher(void)
+bool curseur(void)
 {
-  servo_ecarter_pince.setPosition(position_rapprocher, 150, HerkulexLed::Blue); // Ferme la pince
-  herkulex_bus.executeMove();
-  // servo_ecarter_pince.reboot();
+  // Position neutre du servo écarteur utilisée pour l'action curseur
+  static EtatServo etat = {};
+  bool ok = piloter_servo(&servo_ecarter_pince, "CURSEUR",
+                          position_ecarter_pince, 100, HerkulexLed::Yellow, etat);
+  if (ok)
+  {
+    herkulex_bus.executeMove();
+    etat = {};
+  }
+  return ok;
 }
 
 void test_herkulex()
@@ -255,19 +376,14 @@ void test_herkulex()
       // 512 - 90°/0.325 = 235
       // all_servo.reboot();
       all_servo.setPosition(512 - 0 / 0.325, 50, HerkulexLed::Green);
-      // Possibilité d'ajouter d'autres servos avec différentes positions
-      // my_servo_2.setPosition(512-10/0.325, 50, HerkulexLed::Blue);
-      // my_servo_3.setPosition(512+30/0.325, 50, HerkulexLed::Yellow);
     }
     else
     {
-      // Déplace le servo à +45° en 50 cycles, allume la LED bleue
+      // Déplace le servo à +90° en 100 cycles, allume la LED bleue
       // 512 + (45° / 0.325) = 650
       // 512 + 90°/0.325 = 789
       all_servo.setPosition(512 + 90 / 0.325, 100, HerkulexLed::Blue);
       all_servo.setTorqueOn();
-      // my_servo_2.setPosition(512+10/0.325, 50, HerkulexLed::Blue);
-      // my_servo_3.setPosition(512-30/0.325, 50, HerkulexLed::Yellow);
     }
     last_update = now; // Met à jour le dernier temps d'exécution
     toggle = !toggle;  // Alterne entre les deux positions
@@ -333,7 +449,7 @@ void display_servo_position(void)
   // Serial.print(Pivot_pince.getPosition());
 }
 
-// Allume la led en bleu pour les herkulex connectées
+// Allume la led en vert pour les herkulex connectées
 void test_connexion()
 {
   // test pour voir lequel est connectée
@@ -343,10 +459,10 @@ void test_connexion()
 // si on veut la position d'un servo en particulier
 int16_t get_servo_pos(HerkulexServo servo)
 {
-  return (servo.getPosition() - 512) * 0.325; // on retrun la position du servo voulu
+  return (servo.getPosition() - 512) * 0.325; // on retourne la position du servo voulu
 }
 
-// donne la position de tout les servos en °, range tout des les variables
+// donne la position de tous les servos en °, range tout dans les variables
 void get_all_servo_pos(
     short *pos_servo_pivot_gauche,
     short *pos_servo_pivot_droit,
@@ -368,16 +484,8 @@ void get_all_servo_pos(
 
 void restart_all_servo(void)
 {
-  servo_attraper_interieur.reboot();
-  delay(300);
-  servo_attraper_exterieur.reboot();
-  delay(300);
-  servo_retourner_interieur.reboot();
-  delay(300);
-  servo_retourner_exterieur.reboot();
-  delay(300);
-  servo_ecarter_pince.reboot();
-  delay(300);
+  all_servo.reboot();
+  vTaskDelay(pdMS_TO_TICKS(225));
 }
 
 void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_)
@@ -401,5 +509,13 @@ void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_)
   delay(300); // pour être certain
   // Serial.print(1);
   new_.setLedColor(HerkulexLed::White);
-
+  while (1)
+  {
+    if (Serial.available() > 0)
+    {
+      char c = Serial.read();
+      if (c == 'f')
+        break;
+    }
+  }
 }
