@@ -9,13 +9,13 @@
 #define SERVO_SERRAGE 0x00
 #define SERVO_ROTATION 0x00
 
-#define position_ecarter             400
-#define position_ecarter_pince       350
-#define position_defaut              300
-#define position_retourner           820
-#define position_attraper            593
-#define position_attraper_interieur  593
-#define position_rapprocher          275
+#define position_ecarter            400
+#define position_ecarter_pince      350
+#define position_defaut             300
+#define position_retourner          820
+#define position_attraper           593
+#define position_attraper_interieur 593
+#define position_rapprocher         275
 #define position_retourner_exterieur 820
 
 // Broches série
@@ -32,15 +32,12 @@ extern int objet_pince_int;
 extern int objet_pince_ext;
 
 // Prototypes de fonctions
-// Toutes les fonctions servo retournent bool :
-//   false → mouvement pas encore confirmé (rappeler à chaque tour de boucle)
-//   true  → mouvement détecté ou servo déjà en position
-bool serrer(int pince);
-bool desserrer(int pince);
-bool tourner(int pince);
-bool rapprocher(void);
-bool ecarter(void);
-bool curseur(void);
+void serrer(int pince);
+void desserrer(int pince);
+void tourner(int pince);
+void rapprocher(void);
+void ecarter(void);
+void curseur(void);
 
 void change_id(uint8_t id, HerkulexServo old_, HerkulexServo new_);
 void init_serial_1_for_herkulex();
