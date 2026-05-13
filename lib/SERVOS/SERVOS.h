@@ -10,11 +10,11 @@
 #define SERVO_ROTATION 0x00
 
 #define position_ecarter            400
-#define position_ecarter_pince      350
+#define position_ecarter_pince      310
 #define position_defaut             300
 #define position_retourner          820
-#define position_attraper           593
-#define position_attraper_interieur 593
+#define position_attraper           600
+#define position_attraper_interieur 600
 #define position_rapprocher         275
 #define position_retourner_exterieur 820
 

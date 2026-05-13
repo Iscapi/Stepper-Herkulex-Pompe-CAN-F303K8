@@ -9,17 +9,17 @@ HerkulexServoBus herkulex_bus(Serial1);
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
 
 // pince avant 0
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
 // pince arrière 1
-/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
+HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
 // Variables d'état des pinces (1 = objet présent, 0 = vide)
 int objet_pince_int = 0;
 int objet_pince_ext = 0;
@@ -94,7 +94,7 @@ void maj_etat_pince(int pince, int etat)
 {
   if (pince == 1 || pince == 12) objet_pince_int = etat;
   if (pince == 2 || pince == 12) objet_pince_ext = etat;
-  Serial.printf("[PINCE] int=%d  ext=%d\n", objet_pince_int, objet_pince_ext);
+  //Serial.printf("[PINCE] int=%d  ext=%d\n", objet_pince_int, objet_pince_ext);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -151,25 +151,25 @@ void tourner(int pince)
   case 1: position = position_retourner; etat_rotae = 0; break;
   }
   if (pince == 1 || pince == 12)
-    servo_retourner_interieur.setPosition(position, 120, HerkulexLed::Blue);
+    servo_retourner_interieur.setPosition(position, 100, HerkulexLed::Blue);
   if (pince == 2 || pince == 12)
-    servo_retourner_exterieur.setPosition(position, 120, HerkulexLed::Green);
+    servo_retourner_exterieur.setPosition(position, 100, HerkulexLed::Green);
 }
 
 void serrer(int pince)
 {
   if (pince == 1 || pince == 12)
-    servo_attraper_interieur.setPosition(position_attraper_interieur, 130, HerkulexLed::Green);
+    servo_attraper_interieur.setPosition(position_attraper_interieur, 100, HerkulexLed::Green);
   if (pince == 2 || pince == 12)
-    servo_attraper_exterieur.setPosition(position_attraper, 130, HerkulexLed::Green);
+    servo_attraper_exterieur.setPosition(position_attraper, 100, HerkulexLed::Green);
 }
 
 void desserrer(int pince)
 {
   if (pince == 1 || pince == 12)
-    servo_attraper_interieur.setPosition(position_ecarter, 130, HerkulexLed::Blue);
+    servo_attraper_interieur.setPosition(position_ecarter, 100, HerkulexLed::Blue);
   if (pince == 2 || pince == 12)
-    servo_attraper_exterieur.setPosition(position_ecarter, 130, HerkulexLed::Green);
+    servo_attraper_exterieur.setPosition(position_ecarter, 100, HerkulexLed::Green);
 }
 
 void ecarter(void)
@@ -180,14 +180,14 @@ void ecarter(void)
 
 void rapprocher(void)
 {
-  servo_ecarter_pince.setPosition(position_rapprocher, 100, HerkulexLed::Blue);
+  servo_ecarter_pince.setPosition(position_rapprocher, 40, HerkulexLed::Blue);
   herkulex_bus.executeMove();
 }
 
 void curseur(void)
 {
   // Position neutre du servo écarteur utilisée pour l'action curseur
-  servo_ecarter_pince.setPosition(position_ecarter_pince, 100, HerkulexLed::Yellow);
+  servo_ecarter_pince.setPosition(position_ecarter_pince, 40, HerkulexLed::Yellow);
   herkulex_bus.executeMove();
 }
 

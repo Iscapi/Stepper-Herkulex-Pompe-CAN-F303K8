@@ -23,14 +23,14 @@ int tab_CAN[8];
 int ID = 0;
 int etat_rotae = 1;
 
-int num_carte = 0;
+int num_carte = 1;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
 int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
 
 int en_cours = 0, pre_action = 0;
 static unsigned long lastSend = 0;
 int temp = 0, E = 0, mouv = 0, verif_curseur = 0;
-int action_suivante = 0;  // Pour stocker la prochaine action
+int action_suivante = 0; // Pour stocker la prochaine action
 
 void reception(char ch);
 // void CAN_(void *);
@@ -77,12 +77,12 @@ void loop()
       if ((CAN_RX_msg.id == 0x500 + num_carte))
       {
         int nouvelle_action = CAN_RX_msg.buf[0];
-        
+
         // Si aucune action en cours (E == 0), accepter directement
         if (E == 0)
         {
           action_a_faire = nouvelle_action;
-          Serial.printf("Nouvelle action acceptée: %d\n", action_a_faire);
+          // Serial.printf("Nouvelle action acceptée: %d\n", action_a_faire);
         }
         else
         {
@@ -90,7 +90,7 @@ void loop()
           if (nouvelle_action != action_a_faire && nouvelle_action != 0)
           {
             action_suivante = nouvelle_action;
-            Serial.printf("Action en cours (%d), suivante stockée: %d\n", action_a_faire, action_suivante);
+            // Serial.printf("Action en cours (%d), suivante stockée: %d\n", action_a_faire, action_suivante);
           }
         }
       }
@@ -103,14 +103,14 @@ void loop()
       if ((CAN_RX_msg.id == 0x504 + num_carte))
       {
         ack_action = CAN_RX_msg.buf[0];
-        Serial.printf("ACK CAN reçu: %d (action=%d, E=%d)\n", ack_action, action_a_faire, E);
+        // Serial.printf("ACK CAN reçu: %d (action=%d, E=%d)\n", ack_action, action_a_faire, E);
       }
-      
+
       if ((CAN_RX_msg.id == 0x206) && num_carte == 0)
       {
         mouv = CAN_RX_msg.buf[0];
       }
-      
+
       if ((CAN_RX_msg.id == 0x008) && num_carte == 0)
       {
         verif_curseur = CAN_RX_msg.buf[0];
@@ -181,12 +181,24 @@ void loop()
       switch (action_a_faire)
       {
       case 0:
+        if (pre_action == 3)
+        {
+          restart_all_servo();
+          init_serial_1_for_herkulex();
+          delay(1000);
+          rapprocher();
+          delay(1000);
+          tourner(12);
+          delay(1200);
+          desserrer(12);
+          delay(1000);
+        }
         // Aucune action en cours, charger l'action suivante si disponible
         if (action_suivante != 0)
         {
           action_a_faire = action_suivante;
           action_suivante = 0;
-          Serial.printf("Chargement action suivante: %d\n", action_a_faire);
+          // Serial.printf("Chargement action suivante: %d\n", action_a_faire);
         }
         break;
 
@@ -197,46 +209,51 @@ void loop()
         case 0:
           // CRUCIAL: Reset ack_action au début de l'action
           ack_action = 0;
-          Serial.println("Action 1 - E0: Descente (ack_action reset)");
+          verif_action = 0;
+          CAN_TX_msg.id = 0x10C + num_carte;
+          CAN_TX_msg.len = 1;
+          CAN_TX_msg.buf[0] = verif_action;
+          Can.write(CAN_TX_msg);
+          // Serial.println("Action 1 - E0: Descente (ack_action reset)");
           bas(abs(pas_act - PAS_BAS));
           pas_act = PAS_BAS;
           E = 1;
           temp = millis();
           break;
-          
+
         case 1:
           if ((millis() - temp) > 00)
           {
-            Serial.printf("Action 1 - E1: Serrage pince %d\n", sous_pince);
+            //  Serial.printf("Action 1 - E1: Serrage pince %d\n", sous_pince);
             serrer(sous_pince);
             E = 2;
             temp = millis();
           }
           break;
-          
+
         case 2:
           if ((millis() - temp) > 1500)
           {
-            Serial.printf("Action 1 - E2: Montée + ACK (ack_action avant envoi=%d)\n", ack_action);
+            //  Serial.printf("Action 1 - E2: Montée + ACK (ack_action avant envoi=%d)\n", ack_action);
             verif_action = 1;
             CAN_TX_msg.id = 0x10C + num_carte;
             CAN_TX_msg.len = 1;
             CAN_TX_msg.buf[0] = verif_action;
             Can.write(CAN_TX_msg);
-            
+
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             maj_etat_pince(sous_pince, 1);
-            
+
             E = 3;
             temp = millis();
           }
           break;
-          
+
         case 3:
           if (ack_action == 2)
           {
-            Serial.println("Action 1 - E3: ACK confirmé, reset complet");
+            // Serial.println("Action 1 - E3: ACK confirmé, reset complet");
             verif_action = 0;
             sous_pince = 0;
             action_a_faire = 0;
@@ -249,7 +266,7 @@ void loop()
             static unsigned long dernierDebug = 0;
             if ((millis() - dernierDebug) > 1000)
             {
-              Serial.printf("Action 1 - E3: En attente ACK (ack_action=%d)\n", ack_action);
+              // Serial.printf("Action 1 - E3: En attente ACK (ack_action=%d)\n", ack_action);
               dernierDebug = millis();
             }
           }
@@ -264,23 +281,24 @@ void loop()
         case 0:
           // CRUCIAL: Reset ack_action au début de l'action
           ack_action = 0;
-          Serial.println("Action 2 - E0: Envoi ACK immédiat (ack_action reset)");
-          // Envoi ACK immédiat
+
+          // Serial.println("Action 2 - E0: Envoi ACK immédiat (ack_action reset)");
+          //  Envoi ACK immédiat
           verif_action = 1;
           CAN_TX_msg.id = 0x10C + num_carte;
           CAN_TX_msg.len = 1;
           CAN_TX_msg.buf[0] = verif_action;
           Can.write(CAN_TX_msg);
-          
+
           E = 1;
           temp = millis();
           break;
-          
+
         case 1:
           // Attente ACK de la RPI
           if (ack_action == 2)
           {
-            Serial.println("Action 2 - E1: ACK confirmé, début action");
+            // Serial.println("Action 2 - E1: ACK confirmé, début action");
             ack_action = 0;
             E = 2;
             temp = millis();
@@ -291,16 +309,16 @@ void loop()
             static unsigned long dernierDebug = 0;
             if ((millis() - dernierDebug) > 1000)
             {
-              Serial.printf("Action 2 - E1: En attente ACK (ack_action=%d)\n", ack_action);
+              // Serial.printf("Action 2 - E1: En attente ACK (ack_action=%d)\n", ack_action);
               dernierDebug = millis();
             }
           }
           break;
-          
+
         case 2:
           if ((millis() - temp) > 00)
           {
-            Serial.println("Action 2 - E2: Ecarter + Descente");
+            // Serial.println("Action 2 - E2: Ecarter + Descente");
             ecarter();
             bas(abs(pas_act - PAS_Retourner));
             pas_act = PAS_Retourner;
@@ -308,25 +326,25 @@ void loop()
             temp = millis();
           }
           break;
-          
+
         case 3:
           if ((millis() - temp) > 00)
           {
-            Serial.printf("Action 2 - E3: Tourner pince %d\n", sous_pince);
+            // Serial.printf("Action 2 - E3: Tourner pince %d\n", sous_pince);
             tourner(sous_pince);
             E = 4;
             temp = millis();
           }
           break;
-          
+
         case 4:
           if ((millis() - temp) > 1500)
           {
-            Serial.println("Action 2 - E4: Montée + Rapprocher + Reset");
+            // Serial.println("Action 2 - E4: Montée + Rapprocher + Reset");
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             rapprocher();
-            
+
             verif_action = 0;
             sous_pince = 0;
             action_a_faire = 0;
@@ -344,56 +362,47 @@ void loop()
         case 0:
           // CRUCIAL: Reset ack_action au début de l'action
           ack_action = 0;
-          Serial.println("Action 3 - E0: Descente (ack_action reset)");
+          verif_action = 0;
+          CAN_TX_msg.id = 0x10C + num_carte;
+          CAN_TX_msg.len = 1;
+          CAN_TX_msg.buf[0] = verif_action;
+          Can.write(CAN_TX_msg);
+          // Serial.println("Action 3 - E0: Descente (ack_action reset)");
           bas(abs(pas_act - PAS_BAS));
           pas_act = PAS_BAS;
           E = 1;
           temp = millis();
           break;
-          
+
         case 1:
           if ((millis() - temp) > 00)
           {
-            Serial.printf("Action 3 - E1: Desserrer pince %d\n", sous_pince);
+            // Serial.printf("Action 3 - E1: Desserrer pince %d\n", sous_pince);
             desserrer(sous_pince);
             E = 2;
             temp = millis();
           }
           break;
-          
+
         case 2:
           if ((millis() - temp) > 300)
           {
-            Serial.printf("Action 3 - E2: Montée + ACK + Reboot (ack_action avant envoi=%d)\n", ack_action);
+            // Serial.printf("Action 3 - E2: Montée + ACK + Reboot (ack_action avant envoi=%d)\n", ack_action);
             verif_action = 1;
-            CAN_TX_msg.id = 0x10C + num_carte;
-            CAN_TX_msg.len = 1;
-            CAN_TX_msg.buf[0] = verif_action;
-            Can.write(CAN_TX_msg);
-            
+
             haut(abs(pas_act - PAS_HAUT));
             pas_act = PAS_HAUT;
             maj_etat_pince(sous_pince, 0);
 
-            restart_all_servo();
-            init_serial_1_for_herkulex();
-
-            rapprocher();
-            delay(1000);
-            tourner(12);
-            delay(1200);
-            desserrer(12);
-            delay(1000);
-            
             E = 3;
             temp = millis();
           }
           break;
-          
+
         case 3:
           if (ack_action == 2)
           {
-            Serial.println("Action 3 - E3: ACK confirmé, reset complet");
+            // Serial.println("Action 3 - E3: ACK confirmé, reset complet");
             verif_action = 0;
             sous_pince = 0;
             action_a_faire = 0;
@@ -406,7 +415,7 @@ void loop()
             static unsigned long dernierDebug = 0;
             if ((millis() - dernierDebug) > 1000)
             {
-              Serial.printf("Action 3 - E3: En attente ACK (ack_action=%d)\n", ack_action);
+              // Serial.printf("Action 3 - E3: En attente ACK (ack_action=%d)\n", ack_action);
               dernierDebug = millis();
             }
           }
@@ -440,6 +449,7 @@ void loop()
       rapprocher();
     }
   }
+  pre_action = action_a_faire;
 }
 
 void reception(char ch)
