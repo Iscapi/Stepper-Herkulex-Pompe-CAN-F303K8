@@ -8,18 +8,18 @@ HerkulexServoBus herkulex_bus(Serial1);
 
 HerkulexServo all_servo(herkulex_bus, HERKULEX_BROADCAST_ID);
 
-// pince avant 0
-/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
+// pince arrière 1
+HerkulexServo servo_attraper_interieur(herkulex_bus, 0x0B);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x02);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x03);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x04);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);*/
-// pince arrière 1
-HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x05);
+// pince avant 0
+/*HerkulexServo servo_attraper_interieur(herkulex_bus, 0x06);
 HerkulexServo servo_retourner_interieur(herkulex_bus, 0x07);
 HerkulexServo servo_retourner_exterieur(herkulex_bus, 0x09);
 HerkulexServo servo_attraper_exterieur(herkulex_bus, 0x08);
-HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);
+HerkulexServo servo_ecarter_pince(herkulex_bus, 0x0A);*/
 // Variables d'état des pinces (1 = objet présent, 0 = vide)
 int objet_pince_int = 0;
 int objet_pince_ext = 0;
@@ -61,22 +61,28 @@ void init_serial_1_for_herkulex()
   // Pour chaque servo : torque ON puis position de repos immédiate
   // pour écraser la goal position stockée avant le reboot
   // et éviter que le servo parte vers une position indéterminée
+  servo_attraper_interieur.reboot();
+  delay(300);
   servo_attraper_interieur.setTorqueOn();
   servo_attraper_interieur.setLedColor(HerkulexLed::Blue);
   delay(100);
-
+servo_attraper_exterieur.reboot();
+  delay(300);
   servo_attraper_exterieur.setTorqueOn();
   servo_attraper_exterieur.setLedColor(HerkulexLed::Blue);
   delay(100);
-
+servo_retourner_interieur.reboot();
+  delay(300);
   servo_retourner_interieur.setTorqueOn();
   servo_retourner_interieur.setLedColor(HerkulexLed::Green);
   delay(100);
-
+servo_retourner_exterieur.reboot();
+  delay(300);
   servo_retourner_exterieur.setTorqueOn();
   servo_retourner_exterieur.setLedColor(HerkulexLed::Green);
   delay(100);
-
+servo_ecarter_pince.reboot();
+  delay(300);
   servo_ecarter_pince.setTorqueOn();
   servo_ecarter_pince.setLedColor( HerkulexLed::Cyan);
 
@@ -105,33 +111,34 @@ void maj_etat_pince(int pince, int etat)
 void check_herkulex_errors_once(void)
 {
   for (uint8_t i = 0; i < NB_SERVOS; i++)
-  {
-    uint8_t status_raw = servos_surveilles[i]
-                           ->readRam(HerkulexRamRegister::StatusError);
-    HerkulexStatusError err = static_cast<HerkulexStatusError>(status_raw);
+  { HerkulexStatusError err;
+    HerkulexStatusDetail det;
+     servos_surveilles[i]->getStatus(err,det);
+   
 
     if (err != HerkulexStatusError::None)
     {
-      Serial.printf("[HERKULEX] Erreur servo %s : 0x%02X -> reboot\n",
-                    noms_servos[i], status_raw);
+      //Serial.printf("[HERKULEX] Erreur servo %s : 0x%02X -> reboot\n",
+       //             noms_servos[i], status_raw);
 
       // Diagnostic détaillé
-      if ((err & HerkulexStatusError::Overload)         != HerkulexStatusError::None)
-        Serial.println("  -> Surcharge");
-      if ((err & HerkulexStatusError::TemperatureLimit) != HerkulexStatusError::None)
-        Serial.println("  -> Temperature excessive");
-      if ((err & HerkulexStatusError::InputVoltage)     != HerkulexStatusError::None)
-        Serial.println("  -> Tension hors limites");
-      if ((err & HerkulexStatusError::DriverFault)      != HerkulexStatusError::None)
-        Serial.println("  -> Defaut driver");
+      //if ((err & HerkulexStatusError::Overload)         != HerkulexStatusError::None)
+      //  Serial.println("  -> Surcharge");
+      //if ((err & HerkulexStatusError::TemperatureLimit) != HerkulexStatusError::None)
+      //  Serial.println("  -> Temperature excessive");
+      //if ((err & HerkulexStatusError::InputVoltage)     != HerkulexStatusError::None)
+     //   Serial.println("  -> Tension hors limites");
+      //if ((err & HerkulexStatusError::DriverFault)      != HerkulexStatusError::None)
+//Serial.println("  -> Defaut driver");
 
       // Reboot du servo fautif : safe car init_serial va suivre
       servos_surveilles[i]->reboot();
       delay(300);
+      servos_surveilles[i]->setTorqueOn();
     }
     else
     {
-      Serial.printf("[HERKULEX] Servo %s OK\n", noms_servos[i]);
+    //  Serial.printf("[HERKULEX] Servo %s OK\n", noms_servos[i]);
     }
   }
 }
@@ -181,14 +188,14 @@ void ecarter(void)
 void rapprocher(void)
 {
   servo_ecarter_pince.setPosition(position_rapprocher, 40, HerkulexLed::Blue);
-  herkulex_bus.executeMove();
+  //herkulex_bus.executeMove();
 }
 
 void curseur(void)
 {
   // Position neutre du servo écarteur utilisée pour l'action curseur
-  servo_ecarter_pince.setPosition(position_ecarter_pince, 40, HerkulexLed::Yellow);
-  herkulex_bus.executeMove();
+  servo_ecarter_pince.setPosition(position_curseur, 40, HerkulexLed::Yellow);
+  //herkulex_bus.executeMove();
 }
 
 void test_herkulex()

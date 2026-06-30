@@ -13,10 +13,11 @@
 #define position_ecarter_pince      310
 #define position_defaut             300
 #define position_retourner          820
-#define position_attraper           600
-#define position_attraper_interieur 600
+#define position_attraper           610
+#define position_attraper_interieur 610
 #define position_rapprocher         275
 #define position_retourner_exterieur 820
+#define position_curseur 550
 
 // Broches série
 #define PIN_SW_RX PB7

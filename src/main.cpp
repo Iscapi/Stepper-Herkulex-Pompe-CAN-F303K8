@@ -23,9 +23,9 @@ int tab_CAN[8];
 int ID = 0;
 int etat_rotae = 1;
 
-int num_carte = 1;
+int num_carte = 1, reboot = 1;
 int etat_RPI = 0, etat_ESP_RPI = 0, on_pour_rpi = 0;
-int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0;
+int action_a_faire = 0, sous_pince = 0, verif_action = 0, ack_action = 0, pas_act = 0, fin = 0;
 
 int en_cours = 0, pre_action = 0;
 static unsigned long lastSend = 0;
@@ -46,6 +46,7 @@ void setup()
   Can.setFilter(1, 0x502 + num_carte, 0x1FFFFFFF);
   Can.setFilter(2, 0x500 + num_carte, 0x1FFFFFFF);
   Can.setFilter(3, 0x504 + num_carte, 0x1FFFFFFF);
+  Can.setFilter(6, 0x506, 0x1FFFFFFF);
   Can.setFilter(4, 0x206, 0x1FFFFFFF);
   Can.setFilter(5, 0x008, 0x1FFFFFFF);
 
@@ -81,6 +82,7 @@ void loop()
         // Si aucune action en cours (E == 0), accepter directement
         if (E == 0)
         {
+          pre_action = action_a_faire;
           action_a_faire = nouvelle_action;
           // Serial.printf("Nouvelle action acceptée: %d\n", action_a_faire);
         }
@@ -110,6 +112,10 @@ void loop()
       {
         mouv = CAN_RX_msg.buf[0];
       }
+      if ((CAN_RX_msg.id == 0x506) && num_carte == 0)
+      {
+        fin = CAN_RX_msg.buf[0];
+      }
 
       if ((CAN_RX_msg.id == 0x008) && num_carte == 0)
       {
@@ -131,7 +137,7 @@ void loop()
         delay(1000);
         haut(abs(pas_act - (PAS_HAUT)));
         pas_act = PAS_HAUT;
-        delay(15000);
+        delay(8000);
         init_serial_1_for_herkulex();
         desserrer(12);
         delay(1000);
@@ -176,14 +182,16 @@ void loop()
     }
 
     // ── Exécution des actions ─────────────────────────────────
-    if ((etat_RPI == 1) && (mouv != 9 && mouv != 10))
+    if ((etat_RPI == 1) && (mouv != 9 && mouv != 10) && fin == 0)
     {
+      if (action_a_faire == 3)
+        reboot = 0;
+      // check_herkulex_errors_once();
       switch (action_a_faire)
       {
       case 0:
-        if (pre_action == 3)
+        if (reboot == 0)
         {
-          restart_all_servo();
           init_serial_1_for_herkulex();
           delay(1000);
           rapprocher();
@@ -192,6 +200,7 @@ void loop()
           delay(1200);
           desserrer(12);
           delay(1000);
+          reboot = 1;
         }
         // Aucune action en cours, charger l'action suivante si disponible
         if (action_suivante != 0)
@@ -427,6 +436,11 @@ void loop()
         break;
       }
     }
+    else if (fin != 0)
+    {
+      desserrer(12);
+      bas(pas_act);
+    }
     else if ((mouv == 9 || mouv == 10) && num_carte == 0)
     {
       if (verif_curseur == 0)
@@ -449,7 +463,6 @@ void loop()
       rapprocher();
     }
   }
-  pre_action = action_a_faire;
 }
 
 void reception(char ch)
